@@ -19,7 +19,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     UpsertKnowledgeOkfCandidateRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore,
+    KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStore;
@@ -143,19 +144,30 @@ impl KnowledgeOkfConceptLinkStore for EmptyLinkStore {
         Ok(Vec::new())
     }
 
-    async fn list_orphan_concept_ids(
+    async fn list_inbound_link_targets_page(
         &self,
         _space_id: u64,
-        _published_concept_ids: &[String],
-    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(Vec::new())
+        _after_concept_id: Option<&str>,
+        _limit: u32,
+    ) -> Result<InboundLinkTargetsPage, KnowledgeOkfConceptLinkStoreError> {
+        Ok(InboundLinkTargetsPage {
+            targets: Vec::new(),
+            next_cursor: None,
+            has_more: false,
+        })
     }
 
-    async fn list_active_link_edges(
+    async fn list_active_link_edges_page(
         &self,
         _space_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(Vec::new())
+        _after: Option<LinkEdgeCursor>,
+        _limit: u32,
+    ) -> Result<LinkEdgePage, KnowledgeOkfConceptLinkStoreError> {
+        Ok(LinkEdgePage {
+            edges: Vec::new(),
+            next_cursor: None,
+            has_more: false,
+        })
     }
 }
 
@@ -179,18 +191,21 @@ impl KnowledgeOkfConceptLinkStore for UnavailableLinkStore {
         Err(link_store_unavailable())
     }
 
-    async fn list_orphan_concept_ids(
+    async fn list_inbound_link_targets_page(
         &self,
         _space_id: u64,
-        _published_concept_ids: &[String],
-    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        _after_concept_id: Option<&str>,
+        _limit: u32,
+    ) -> Result<InboundLinkTargetsPage, KnowledgeOkfConceptLinkStoreError> {
         Err(link_store_unavailable())
     }
 
-    async fn list_active_link_edges(
+    async fn list_active_link_edges_page(
         &self,
         _space_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
+        _after: Option<LinkEdgeCursor>,
+        _limit: u32,
+    ) -> Result<LinkEdgePage, KnowledgeOkfConceptLinkStoreError> {
         Err(link_store_unavailable())
     }
 }

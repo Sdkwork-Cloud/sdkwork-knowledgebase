@@ -40,7 +40,18 @@ pub trait KnowledgeOutboxStore: Send + Sync {
         &self,
         limit: u32,
         max_retry_count: u32,
-    ) -> Result<usize, KnowledgeOutboxStoreError>;
+    ) -> Result<OutboxRequeueResult, KnowledgeOutboxStoreError>;
+}
+
+/// Outcome of a failed-event requeue sweep.
+///
+/// `requeued` events became pending again for a later claim (honoring their
+/// exponential backoff); `dead_lettered` events exhausted their retry budget and
+/// were permanently moved to the dead-letter status.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct OutboxRequeueResult {
+    pub requeued: usize,
+    pub dead_lettered: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

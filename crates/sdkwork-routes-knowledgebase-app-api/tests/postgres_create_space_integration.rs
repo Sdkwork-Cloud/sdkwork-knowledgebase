@@ -22,6 +22,7 @@ fn optional_postgres_database_url() -> Option<String> {
         .filter(|url| is_postgres_database_url(url))
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn postgres_runtime_creates_space_through_app_router() {
     let _guard = postgres_create_space_test_lock().await;

@@ -63,7 +63,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
   browser/media URL avatar identities fail before persistence; secret inputs are write-only and
   responses are redacted. See
   [REQ-2026-0731](../requirements/REQ-2026-0731-wechat-config-input-boundaries.md).
-- Provider-backed media tasks: ClawRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
+- Provider-backed media tasks: CloudRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
 - Backend API: sources, OKF compile/candidates, indexes, retrieval profiles/traces
 - Backend Provider management: explicit tenant/organization/space bindings, capability-aware
   testing and activation, write-only credential references, disable/switch/migrate/rollback, and

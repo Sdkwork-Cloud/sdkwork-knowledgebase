@@ -79,8 +79,8 @@ on:
         description: sdkwork-utils commit/ref.
         required: false
         default: main
-      sdkwork_claw_router_ref:
-        description: sdkwork-claw-router commit/ref.
+      sdkwork_cloudrouter_ref:
+        description: sdkwork-cloudrouter-router commit/ref.
         required: false
         default: main
 
@@ -119,6 +119,6 @@ jobs:
           "SDKWORK_KERNEL_REF": "${{ github.event.inputs.sdkwork_kernel_ref || vars.SDKWORK_KERNEL_REF }}",
           "SDKWORK_MEMORY_REF": "${{ github.event.inputs.sdkwork_memory_ref || vars.SDKWORK_MEMORY_REF }}",
           "SDKWORK_UTILS_REF": "${{ github.event.inputs.sdkwork_utils_ref || vars.SDKWORK_UTILS_REF }}",
-          "SDKWORK_CLAW_ROUTER_REF": "${{ github.event.inputs.sdkwork_claw_router_ref || vars.SDKWORK_CLAW_ROUTER_REF }}"
+          "SDKWORK_CLOUDROUTER_REF": "${{ github.event.inputs.sdkwork_cloudrouter_ref || vars.SDKWORK_CLOUDROUTER_REF }}"
         }
     secrets: inherit

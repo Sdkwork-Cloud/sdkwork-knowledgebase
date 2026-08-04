@@ -27,7 +27,7 @@ client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-const result = await client.knowledge.providerHealth.list();
+const result = await client.knowledge.group.launch.capability();
 ```
 
 ## Authentication
@@ -61,8 +61,8 @@ const client = new SdkworkKnowledgebaseBackendClient({
 ### knowledge
 
 ```typescript
-// Retrieve provider health status
-const result = await client.knowledge.providerHealth.list();
+// Retrieve the group knowledgebase launch capability state for the runtime deployment
+const result = await client.knowledge.group.launch.capability();
 ```
 
 ## Error Handling
@@ -71,7 +71,7 @@ const result = await client.knowledge.providerHealth.list();
 import { SdkworkKnowledgebaseBackendClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-backend-sdk';
 
 try {
-  const result = await client.knowledge.providerHealth.list();
+  const result = await client.knowledge.group.launch.capability();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);

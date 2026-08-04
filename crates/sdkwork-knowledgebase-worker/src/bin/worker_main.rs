@@ -55,6 +55,18 @@ async fn main() {
             .and_then(|value| value.parse::<u32>().ok())
             .filter(|value| (1..=200).contains(value))
             .unwrap_or(25);
+    let ingestion_max_attempts =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_MAX_ATTEMPTS")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| (1..=100).contains(value))
+            .unwrap_or(20);
+    let phase_timeout_seconds =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_PHASE_TIMEOUT_SECONDS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| (5..=3_600).contains(value))
+            .unwrap_or(60);
     let wiki_backfill = resolve_wiki_backfill_config(tenant_id);
     let wiki_drive_events = resolve_wiki_drive_event_config(tenant_id);
     let health_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR")
@@ -79,6 +91,8 @@ async fn main() {
         provider_migration_lease_seconds,
         worker_id = %worker_id,
         group_archive_limit,
+        ingestion_max_attempts,
+        phase_timeout_seconds,
         wiki_backfill_enabled = wiki_backfill.is_some(),
         wiki_drive_events_enabled = true,
         %health_addr,
@@ -105,8 +119,10 @@ async fn main() {
                 ingestion_job_limit,
                 provider_migration_limit,
                 group_archive_limit,
+                ingestion_max_attempts,
                 wiki_backfill,
                 wiki_drive_events,
+                phase_timeout: std::time::Duration::from_secs(phase_timeout_seconds),
             },
         },
     )

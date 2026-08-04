@@ -86,9 +86,9 @@ never access persistence or credentials outside approved ports.
 
 - `sdkwork-utils-rust` provides generic HTTP contract helpers but no outbound client timeout,
   retry, circuit-breaker, bulkhead, or bounded-body runtime.
-- ClawRouter's `sdkwork-claw-provider-adapter-http` is a useful reference for HTTPS target policy,
+- CloudRouter's `sdkwork-cloudrouter-provider-adapter-http` is a useful reference for HTTPS target policy,
   connection/request timeouts, pooling, bounded response collection, and safe error previews. It is
-  coupled to ClawRouter invocation manifests, route configuration, gateway authentication, and
+  coupled to CloudRouter invocation manifests, route configuration, gateway authentication, and
   security types, so Knowledgebase must not create a reverse domain dependency on it.
 - `sdkwork-knowledgebase-observability` exports request, audit, billing, and OKF metrics but has no
   provider/operation/result/latency dimensions. The provider runtime will expose bounded-cardinality

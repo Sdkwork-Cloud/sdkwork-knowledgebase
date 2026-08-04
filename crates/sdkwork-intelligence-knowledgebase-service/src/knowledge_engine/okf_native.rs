@@ -200,12 +200,15 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         let candidate_limit = request.top_k.saturating_mul(4).max(8) as usize;
         let mut ranked = rank_okf_concepts_with_tokens(pages, &tokens);
 
-        let edges = self
-            .deps
-            .link_store
-            .list_active_link_edges(request.space_id)
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+        // Page through the whole active link graph so link-edge expansion never
+        // silently truncates on large spaces (bounded aggregate, see
+        // MAX_OKF_LINK_SCAN_ROWS).
+        let edges = crate::ports::knowledge_okf_concept_link_store::list_all_active_link_edges(
+            self.deps.link_store.as_ref(),
+            request.space_id,
+        )
+        .await
+        .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
         ranked = expand_ranked_with_link_edges(
             ranked,
             &edges,

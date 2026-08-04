@@ -1,6 +1,8 @@
 use sdkwork_api_knowledgebase_standalone_gateway::shutdown_signal;
 use sdkwork_intelligence_knowledgebase_service::{
+    outbox::OutboxPublishBatchResult,
     ports::knowledge_wiki_persistence::WikiPersistenceScope,
+    provider_migration::ProviderMigrationBatchResult,
     wiki_backfill::{
         RunWikiPublicationBackfillRequest, WikiPublicationBackfillDisposition,
         MAX_WIKI_BACKFILL_PAGE_SIZE,
@@ -12,6 +14,8 @@ use sdkwork_intelligence_knowledgebase_service::{
         KnowledgeWikiSourceCheckpointPageResult, ProcessKnowledgeWikiSourceCheckpointPageRequest,
     },
 };
+use sdkwork_knowledgebase_drive::DomainOutboxDispatchResult;
+use sdkwork_knowledgebase_observability::WORKER_PHASE_NAMES;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 
 pub mod health;
@@ -50,8 +54,13 @@ pub struct MaintenanceConfig {
     pub ingestion_job_limit: u32,
     pub provider_migration_limit: u32,
     pub group_archive_limit: u32,
+    pub ingestion_max_attempts: u32,
     pub wiki_backfill: Option<WikiBackfillMaintenanceConfig>,
     pub wiki_drive_events: WikiDriveEventMaintenanceConfig,
+    /// Per-phase time budget. A phase that exceeds its budget keeps running in
+    /// the background and is reaped by later ticks; it never blocks or starves
+    /// the other maintenance domains.
+    pub phase_timeout: std::time::Duration,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -67,11 +76,12 @@ pub struct MaintenancePollingConfig {
     pub maintenance: MaintenanceConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MaintenanceTickResult {
     pub outbox_requeued: usize,
     pub outbox_published: usize,
     pub outbox_failed: usize,
+    pub outbox_dead_lettered: usize,
     pub ingestion_jobs_processed: usize,
     pub provider_migration_phases_processed: usize,
     pub provider_migrations_completed: usize,
@@ -117,130 +127,212 @@ pub enum MaintenanceTickError {
     WikiSourceProcessing(String),
 }
 
-pub async fn run_maintenance_tick(
+/// Per-phase result of a maintenance tick.
+enum PhaseResult {
+    Outbox(OutboxPublishBatchResult),
+    Ingestion(usize),
+    ProviderMigration(ProviderMigrationBatchResult),
+    GroupArchives(usize),
+    WikiBackfill((usize, usize)),
+    WikiDriveRelay(DomainOutboxDispatchResult),
+    WikiDrive(KnowledgeWikiDriveCheckpointPageResult),
+    WikiSources(KnowledgeWikiSourceCheckpointPageResult),
+    WikiDelivery(
+        sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult,
+    ),
+}
+
+type PhaseHandle = tokio::task::JoinHandle<Result<PhaseResult, MaintenanceTickError>>;
+
+/// In-flight handles for phases that exceeded their budget on a previous tick.
+/// At most one instance of every phase may run at any time.
+#[derive(Default)]
+struct PhaseSlots {
+    outbox: Option<PhaseHandle>,
+    ingestion: Option<PhaseHandle>,
+    provider_migration: Option<PhaseHandle>,
+    group_archive: Option<PhaseHandle>,
+    wiki_backfill: Option<PhaseHandle>,
+    wiki_drive_relay: Option<PhaseHandle>,
+    wiki_drive_events: Option<PhaseHandle>,
+    wiki_sources: Option<PhaseHandle>,
+    wiki_delivery_renewal: Option<PhaseHandle>,
+}
+
+impl PhaseSlots {
+    fn as_array(&mut self) -> [&mut Option<PhaseHandle>; 9] {
+        [
+            &mut self.outbox,
+            &mut self.ingestion,
+            &mut self.provider_migration,
+            &mut self.group_archive,
+            &mut self.wiki_backfill,
+            &mut self.wiki_drive_relay,
+            &mut self.wiki_drive_events,
+            &mut self.wiki_sources,
+            &mut self.wiki_delivery_renewal,
+        ]
+    }
+}
+
+/// Drives one maintenance phase under a bounded time budget with panic and
+/// error isolation.
+///
+/// - A phase that returns an error or panics is logged and metered; the
+///   remaining phases of the tick still run.
+/// - A phase that exceeds its budget is kept in-flight (at most one instance)
+///   and continues in the background; later ticks give it more budget until it
+///   finishes, so slow domains pace themselves without starving the others and
+///   without piling up duplicate work.
+async fn drive_phase(
+    phase_index: usize,
+    budget: std::time::Duration,
+    slot: &mut Option<PhaseHandle>,
+    spawn_phase: impl FnOnce() -> PhaseHandle,
+) -> Option<PhaseResult> {
+    let mut handle = match slot.take() {
+        Some(handle) => handle,
+        None => spawn_phase(),
+    };
+    match tokio::time::timeout(budget, &mut handle).await {
+        Ok(Ok(Ok(result))) => Some(result),
+        Ok(Ok(Err(error))) => {
+            tracing::error!(
+                target: "sdkwork.knowledgebase.worker",
+                phase = WORKER_PHASE_NAMES[phase_index],
+                error = %error,
+                "knowledgebase worker phase failed; remaining phases continue"
+            );
+            sdkwork_knowledgebase_observability::record_worker_phase_failure(phase_index);
+            None
+        }
+        Ok(Err(join_error)) => {
+            tracing::error!(
+                target: "sdkwork.knowledgebase.worker",
+                phase = WORKER_PHASE_NAMES[phase_index],
+                error = %join_error,
+                "knowledgebase worker phase panicked; remaining phases continue"
+            );
+            sdkwork_knowledgebase_observability::record_worker_phase_failure(phase_index);
+            None
+        }
+        Err(_elapsed) => {
+            *slot = Some(handle);
+            tracing::warn!(
+                target: "sdkwork.knowledgebase.worker",
+                phase = WORKER_PHASE_NAMES[phase_index],
+                budget_seconds = budget.as_secs(),
+                "knowledgebase worker phase exceeded its time budget; it continues in the background and is reaped by later ticks"
+            );
+            sdkwork_knowledgebase_observability::record_worker_phase_failure(phase_index);
+            None
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Individual phases (shared by the sequential tick and the resilient loop).
+// ---------------------------------------------------------------------------
+
+async fn run_outbox_phase(
     runtime: &KnowledgebaseRuntime,
     config: &MaintenanceConfig,
-    state: MaintenanceTickState,
-) -> Result<MaintenanceTickResult, MaintenanceTickError> {
-    let outbox = runtime
+) -> Result<OutboxPublishBatchResult, MaintenanceTickError> {
+    runtime
         .publish_pending_outbox_events(config.outbox_limit)
         .await
-        .map_err(MaintenanceTickError::Outbox)?;
-    sdkwork_knowledgebase_observability::record_outbox_maintenance_batch(
-        outbox.requeued,
-        outbox.published,
-        outbox.failed,
-    );
-    let ingestion_jobs_processed = runtime
+        .map_err(MaintenanceTickError::Outbox)
+}
+
+async fn run_ingestion_phase(
+    runtime: &KnowledgebaseRuntime,
+    config: &MaintenanceConfig,
+) -> Result<usize, MaintenanceTickError> {
+    runtime
         .process_queued_ingestion_jobs(
             &config.worker_id,
             config.ingestion_job_lease,
             config.ingestion_job_limit,
+            config.ingestion_max_attempts,
         )
         .await
-        .map_err(MaintenanceTickError::Ingestion)?;
-    let provider_migrations = runtime
+        .map_err(MaintenanceTickError::Ingestion)
+}
+
+async fn run_provider_migration_phase(
+    runtime: &KnowledgebaseRuntime,
+    config: &MaintenanceConfig,
+) -> Result<ProviderMigrationBatchResult, MaintenanceTickError> {
+    runtime
         .process_provider_migrations(
             &config.worker_id,
             config.provider_migration_lease,
             config.provider_migration_limit,
         )
         .await
-        .map_err(MaintenanceTickError::ProviderMigration)?;
-    let group_archives_processed = runtime
-        .process_resumable_group_space_archives(config.group_archive_limit)
-        .await;
-    let (wiki_publications_initialized, wiki_publications_failed) =
-        run_wiki_backfill_compensation(runtime, config.wiki_backfill).await?;
-    let wiki_drive_relay_result = runtime
-        .relay_embedded_wiki_drive_outbox_events()
-        .await
-        .map_err(MaintenanceTickError::WikiDriveEvents)?;
-    let wiki_drive_result = run_wiki_drive_event_maintenance(
-        runtime,
-        &config.worker_id,
-        config.wiki_drive_events,
-        state.wiki_checkpoint_cursor,
-    )
-    .await?;
-    let wiki_source_result = run_wiki_source_maintenance(
-        runtime,
-        &config.worker_id,
-        config.wiki_drive_events,
-        state.wiki_checkpoint_cursor,
-    )
-    .await?;
-    let wiki_delivery_result = if state.renew_wiki_event_deliveries {
-        runtime
-            .renew_wiki_drive_event_delivery_page(
-                sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::RenewWikiDriveEventDeliveryPageRequest {
-                    scope: WikiPersistenceScope {
-                        tenant_id: config.wiki_drive_events.tenant_id,
-                        organization_id: config.wiki_drive_events.organization_id,
-                    },
-                    after_checkpoint_id: state.wiki_delivery_cursor,
-                    limit: config.wiki_drive_events.delivery_renewal_page_size,
-                },
-            )
-            .await
-            .map_err(MaintenanceTickError::WikiDriveEvents)?
-    } else {
-        sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult {
-            checkpoints_scanned: 0,
-            cloud_deliveries_renewed: 0,
-            embedded_relays_verified: 0,
-            failures: Vec::new(),
-            next_after_checkpoint_id: state.wiki_delivery_cursor,
-        }
-    };
-    for failure in &wiki_delivery_result.failures {
-        tracing::warn!(
-            target: "sdkwork.knowledgebase.wiki",
-            event = "knowledgebase.wiki.drive_event_delivery_renewal_failed",
-            checkpoint_id = failure.checkpoint_id,
-            source_scope_uuid = %failure.source_scope_uuid,
-            error_code = %failure.error_code,
-            retry_scheduled = true,
-            retry_policy = "next_renewal_scan",
-            "Wiki Drive event delivery renewal failed and remains eligible for the next bounded scan"
-        );
-    }
-    Ok(MaintenanceTickResult {
-        outbox_requeued: outbox.requeued,
-        outbox_published: outbox.published,
-        outbox_failed: outbox.failed,
-        ingestion_jobs_processed,
-        provider_migration_phases_processed: provider_migrations.processed,
-        provider_migrations_completed: provider_migrations.completed,
-        provider_migrations_rolled_back: provider_migrations.rolled_back,
-        provider_migrations_failed: provider_migrations.failed,
-        group_archives_processed,
-        wiki_publications_initialized,
-        wiki_publications_failed,
-        wiki_drive_outbox_events_processed: wiki_drive_relay_result.processed,
-        wiki_drive_outbox_events_delivered: wiki_drive_relay_result.delivered,
-        wiki_drive_outbox_events_failed: wiki_drive_relay_result.failed,
-        wiki_drive_checkpoints_processed: wiki_drive_result.checkpoints_processed,
-        wiki_drive_events_applied: wiki_drive_result.events.applied,
-        wiki_drive_events_retried: wiki_drive_result.events.retried,
-        wiki_drive_events_dead_lettered: wiki_drive_result.events.dead_lettered,
-        wiki_drive_public_changes: wiki_drive_result.events.public_changes,
-        wiki_sources_claimed: wiki_source_result.sources_claimed,
-        wiki_sources_ready: wiki_source_result.sources_ready,
-        wiki_sources_auto_published: wiki_source_result.sources_auto_published,
-        wiki_sources_retried: wiki_source_result.sources_retried,
-        wiki_sources_quarantined: wiki_source_result.sources_quarantined,
-        wiki_auto_publications_deferred: wiki_source_result.auto_publications_deferred,
-        wiki_drive_next_after_checkpoint_id: wiki_drive_result.next_after_checkpoint_id,
-        wiki_drive_event_deliveries_renewed: wiki_delivery_result.cloud_deliveries_renewed,
-        wiki_drive_event_delivery_relays_verified: wiki_delivery_result.embedded_relays_verified,
-        wiki_drive_event_delivery_failures: wiki_delivery_result.failures.len(),
-        wiki_drive_next_after_event_delivery_checkpoint_id: wiki_delivery_result
-            .next_after_checkpoint_id,
-    })
+        .map_err(MaintenanceTickError::ProviderMigration)
 }
 
-async fn run_wiki_drive_event_maintenance(
+async fn run_group_archive_phase(
+    runtime: &KnowledgebaseRuntime,
+    config: &MaintenanceConfig,
+) -> usize {
+    runtime.process_resumable_group_space_archives(config.group_archive_limit).await
+}
+
+async fn run_wiki_backfill_phase(
+    runtime: &KnowledgebaseRuntime,
+    config: &MaintenanceConfig,
+) -> Result<(usize, usize), MaintenanceTickError> {
+    let Some(config) = config.wiki_backfill else {
+        return Ok((0, 0));
+    };
+    if config.tenant_id == 0
+        || config.actor_id == 0
+        || config.page_size == 0
+        || config.page_size > MAX_WIKI_BACKFILL_PAGE_SIZE
+    {
+        return Err(MaintenanceTickError::WikiBackfill(
+            "maintenance configuration is invalid".to_string(),
+        ));
+    }
+
+    let result = runtime
+        .run_wiki_publication_backfill_page(RunWikiPublicationBackfillRequest {
+            scope: WikiPersistenceScope {
+                tenant_id: config.tenant_id,
+                organization_id: config.organization_id,
+            },
+            after_space_id: None,
+            page_size: config.page_size,
+            actor_id: config.actor_id,
+            dry_run: false,
+        })
+        .await
+        .map_err(MaintenanceTickError::WikiBackfill)?;
+    let initialized = result
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Initialized)
+        .count();
+    let failed = result
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Failed)
+        .count();
+    Ok((initialized, failed))
+}
+
+async fn run_wiki_drive_relay_phase(
+    runtime: &KnowledgebaseRuntime,
+) -> Result<DomainOutboxDispatchResult, MaintenanceTickError> {
+    runtime
+        .relay_embedded_wiki_drive_outbox_events()
+        .await
+        .map_err(MaintenanceTickError::WikiDriveEvents)
+}
+
+async fn run_wiki_drive_phase(
     runtime: &KnowledgebaseRuntime,
     worker_id: &str,
     config: WikiDriveEventMaintenanceConfig,
@@ -292,7 +384,7 @@ async fn run_wiki_drive_event_maintenance(
         .map_err(MaintenanceTickError::WikiDriveEvents)
 }
 
-async fn run_wiki_source_maintenance(
+async fn run_wiki_source_phase(
     runtime: &KnowledgebaseRuntime,
     worker_id: &str,
     config: WikiDriveEventMaintenanceConfig,
@@ -317,53 +409,154 @@ async fn run_wiki_source_maintenance(
         .map_err(MaintenanceTickError::WikiSourceProcessing)
 }
 
-async fn run_wiki_backfill_compensation(
+async fn run_wiki_delivery_phase(
     runtime: &KnowledgebaseRuntime,
-    config: Option<WikiBackfillMaintenanceConfig>,
-) -> Result<(usize, usize), MaintenanceTickError> {
-    let Some(config) = config else {
-        return Ok((0, 0));
-    };
-    if config.tenant_id == 0
-        || config.actor_id == 0
-        || config.page_size == 0
-        || config.page_size > MAX_WIKI_BACKFILL_PAGE_SIZE
-    {
-        return Err(MaintenanceTickError::WikiBackfill(
-            "maintenance configuration is invalid".to_string(),
-        ));
-    }
-
-    let result = runtime
-        .run_wiki_publication_backfill_page(RunWikiPublicationBackfillRequest {
-            scope: WikiPersistenceScope {
-                tenant_id: config.tenant_id,
-                organization_id: config.organization_id,
+    config: &MaintenanceConfig,
+    renew: bool,
+    after_checkpoint_id: Option<u64>,
+) -> Result<
+    sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult,
+    MaintenanceTickError,
+> {
+    if !renew {
+        return Ok(
+            sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult {
+                checkpoints_scanned: 0,
+                cloud_deliveries_renewed: 0,
+                embedded_relays_verified: 0,
+                failures: Vec::new(),
+                next_after_checkpoint_id: after_checkpoint_id,
             },
-            after_space_id: None,
-            page_size: config.page_size,
-            actor_id: config.actor_id,
-            dry_run: false,
-        })
+        );
+    }
+    runtime
+        .renew_wiki_drive_event_delivery_page(
+            sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::RenewWikiDriveEventDeliveryPageRequest {
+                scope: WikiPersistenceScope {
+                    tenant_id: config.wiki_drive_events.tenant_id,
+                    organization_id: config.wiki_drive_events.organization_id,
+                },
+                after_checkpoint_id,
+                limit: config.wiki_drive_events.delivery_renewal_page_size,
+            },
+        )
         .await
-        .map_err(MaintenanceTickError::WikiBackfill)?;
-    let initialized = result
-        .outcomes
-        .iter()
-        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Initialized)
-        .count();
-    let failed = result
-        .outcomes
-        .iter()
-        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Failed)
-        .count();
-    Ok((initialized, failed))
+        .map_err(MaintenanceTickError::WikiDriveEvents)
 }
 
+fn log_delivery_renewal_failures(
+    result: &sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult,
+) {
+    for failure in &result.failures {
+        tracing::warn!(
+            target: "sdkwork.knowledgebase.wiki",
+            event = "knowledgebase.wiki.drive_event_delivery_renewal_failed",
+            checkpoint_id = failure.checkpoint_id,
+            source_scope_uuid = %failure.source_scope_uuid,
+            error_code = %failure.error_code,
+            retry_scheduled = true,
+            retry_policy = "next_renewal_scan",
+            "Wiki Drive event delivery renewal failed and remains eligible for the next bounded scan"
+        );
+    }
+}
+
+/// Runs every maintenance phase sequentially and fails fast on the first error.
+///
+/// This is the deterministic composition used by integration tests. The
+/// production polling loop uses [`run_polling_loop`], which drives the same
+/// phases with per-phase time budgets, panic isolation, and background
+/// continuation.
+pub async fn run_maintenance_tick(
+    runtime: &KnowledgebaseRuntime,
+    config: &MaintenanceConfig,
+    state: MaintenanceTickState,
+) -> Result<MaintenanceTickResult, MaintenanceTickError> {
+    let outbox = run_outbox_phase(runtime, config).await?;
+    sdkwork_knowledgebase_observability::record_outbox_maintenance_batch(
+        outbox.requeued,
+        outbox.published,
+        outbox.failed,
+        outbox.dead_lettered,
+    );
+    let ingestion_jobs_processed = run_ingestion_phase(runtime, config).await?;
+    let provider_migrations = run_provider_migration_phase(runtime, config).await?;
+    let group_archives_processed = run_group_archive_phase(runtime, config).await;
+    let (wiki_publications_initialized, wiki_publications_failed) =
+        run_wiki_backfill_phase(runtime, config).await?;
+    let wiki_drive_relay_result = run_wiki_drive_relay_phase(runtime).await?;
+    let wiki_drive_result = run_wiki_drive_phase(
+        runtime,
+        &config.worker_id,
+        config.wiki_drive_events,
+        state.wiki_checkpoint_cursor,
+    )
+    .await?;
+    let wiki_source_result = run_wiki_source_phase(
+        runtime,
+        &config.worker_id,
+        config.wiki_drive_events,
+        state.wiki_checkpoint_cursor,
+    )
+    .await?;
+    let wiki_delivery_result = run_wiki_delivery_phase(
+        runtime,
+        config,
+        state.renew_wiki_event_deliveries,
+        state.wiki_delivery_cursor,
+    )
+    .await?;
+    log_delivery_renewal_failures(&wiki_delivery_result);
+    Ok(MaintenanceTickResult {
+        outbox_requeued: outbox.requeued,
+        outbox_published: outbox.published,
+        outbox_failed: outbox.failed,
+        outbox_dead_lettered: outbox.dead_lettered,
+        ingestion_jobs_processed,
+        provider_migration_phases_processed: provider_migrations.processed,
+        provider_migrations_completed: provider_migrations.completed,
+        provider_migrations_rolled_back: provider_migrations.rolled_back,
+        provider_migrations_failed: provider_migrations.failed,
+        group_archives_processed,
+        wiki_publications_initialized,
+        wiki_publications_failed,
+        wiki_drive_outbox_events_processed: wiki_drive_relay_result.processed,
+        wiki_drive_outbox_events_delivered: wiki_drive_relay_result.delivered,
+        wiki_drive_outbox_events_failed: wiki_drive_relay_result.failed,
+        wiki_drive_checkpoints_processed: wiki_drive_result.checkpoints_processed,
+        wiki_drive_events_applied: wiki_drive_result.events.applied,
+        wiki_drive_events_retried: wiki_drive_result.events.retried,
+        wiki_drive_events_dead_lettered: wiki_drive_result.events.dead_lettered,
+        wiki_drive_public_changes: wiki_drive_result.events.public_changes,
+        wiki_sources_claimed: wiki_source_result.sources_claimed,
+        wiki_sources_ready: wiki_source_result.sources_ready,
+        wiki_sources_auto_published: wiki_source_result.sources_auto_published,
+        wiki_sources_retried: wiki_source_result.sources_retried,
+        wiki_sources_quarantined: wiki_source_result.sources_quarantined,
+        wiki_auto_publications_deferred: wiki_source_result.auto_publications_deferred,
+        wiki_drive_next_after_checkpoint_id: wiki_drive_result.next_after_checkpoint_id,
+        wiki_drive_event_deliveries_renewed: wiki_delivery_result.cloud_deliveries_renewed,
+        wiki_drive_event_delivery_relays_verified: wiki_delivery_result.embedded_relays_verified,
+        wiki_drive_event_delivery_failures: wiki_delivery_result.failures.len(),
+        wiki_drive_next_after_event_delivery_checkpoint_id: wiki_delivery_result
+            .next_after_checkpoint_id,
+    })
+}
+
+/// Production maintenance loop.
+///
+/// Every phase runs under its own time budget with panic and error isolation
+/// (see [`drive_phase`]). A slow webhook, a panicking phase, or a stuck
+/// checkpoint can delay only its own domain; ingestion, migration, archive,
+/// and wiki maintenance always get their budget each tick. Missed ticks are
+/// skipped (never burst-caught-up) so the loop cannot enter a tight poll storm.
 pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: MaintenancePollingConfig) {
+    let runtime = std::sync::Arc::new(runtime);
     let mut ticker = tokio::time::interval(std::time::Duration::from_millis(
         config.interval_ms.max(250),
     ));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let phase_budget = config.maintenance.phase_timeout;
     let mut wiki_checkpoint_cursor = None;
     let mut wiki_delivery_cursor = None;
     let renewal_interval = std::time::Duration::from_secs(
@@ -376,6 +569,7 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
     let mut last_delivery_renewal = std::time::Instant::now()
         .checked_sub(renewal_interval)
         .unwrap_or_else(std::time::Instant::now);
+    let mut phases = PhaseSlots::default();
     loop {
         tokio::select! {
             _ = ticker.tick() => {
@@ -383,84 +577,183 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                 if renew_wiki_event_deliveries {
                     last_delivery_renewal = std::time::Instant::now();
                 }
-                match run_maintenance_tick(
-                    &runtime,
-                    &config.maintenance,
-                    MaintenanceTickState {
-                        wiki_checkpoint_cursor,
-                        wiki_delivery_cursor,
-                        renew_wiki_event_deliveries,
-                    },
-                ).await {
-                    Ok(result) => {
-                        wiki_checkpoint_cursor = result.wiki_drive_next_after_checkpoint_id;
-                        wiki_delivery_cursor = result.wiki_drive_next_after_event_delivery_checkpoint_id;
-                        if result.outbox_requeued > 0
-                            || result.outbox_published > 0
-                            || result.outbox_failed > 0
-                            || result.ingestion_jobs_processed > 0
-                            || result.provider_migration_phases_processed > 0
-                            || result.group_archives_processed > 0
-                            || result.wiki_publications_initialized > 0
-                            || result.wiki_publications_failed > 0
-                            || result.wiki_drive_outbox_events_processed > 0
-                            || result.wiki_drive_outbox_events_delivered > 0
-                            || result.wiki_drive_outbox_events_failed > 0
-                            || result.wiki_drive_checkpoints_processed > 0
-                            || result.wiki_drive_events_applied > 0
-                            || result.wiki_drive_events_retried > 0
-                            || result.wiki_drive_events_dead_lettered > 0
-                            || result.wiki_drive_public_changes > 0
-                            || result.wiki_sources_claimed > 0
-                            || result.wiki_sources_ready > 0
-                            || result.wiki_sources_auto_published > 0
-                            || result.wiki_sources_retried > 0
-                            || result.wiki_sources_quarantined > 0
-                            || result.wiki_auto_publications_deferred > 0
-                            || result.wiki_drive_event_deliveries_renewed > 0
-                            || result.wiki_drive_event_delivery_relays_verified > 0
-                            || result.wiki_drive_event_delivery_failures > 0
-                        {
-                            tracing::info!(
-                                outbox_requeued = result.outbox_requeued,
-                                outbox_published = result.outbox_published,
-                                outbox_failed = result.outbox_failed,
-                                ingestion_jobs_processed = result.ingestion_jobs_processed,
-                                provider_migration_phases_processed = result.provider_migration_phases_processed,
-                                provider_migrations_completed = result.provider_migrations_completed,
-                                provider_migrations_rolled_back = result.provider_migrations_rolled_back,
-                                provider_migrations_failed = result.provider_migrations_failed,
-                                group_archives_processed = result.group_archives_processed,
-                                wiki_publications_initialized = result.wiki_publications_initialized,
-                                wiki_publications_failed = result.wiki_publications_failed,
-                                wiki_drive_outbox_events_processed = result.wiki_drive_outbox_events_processed,
-                                wiki_drive_outbox_events_delivered = result.wiki_drive_outbox_events_delivered,
-                                wiki_drive_outbox_events_failed = result.wiki_drive_outbox_events_failed,
-                                wiki_drive_checkpoints_processed = result.wiki_drive_checkpoints_processed,
-                                wiki_drive_events_applied = result.wiki_drive_events_applied,
-                                wiki_drive_events_retried = result.wiki_drive_events_retried,
-                                wiki_drive_events_dead_lettered = result.wiki_drive_events_dead_lettered,
-                                wiki_drive_public_changes = result.wiki_drive_public_changes,
-                                wiki_sources_claimed = result.wiki_sources_claimed,
-                                wiki_sources_ready = result.wiki_sources_ready,
-                                wiki_sources_auto_published = result.wiki_sources_auto_published,
-                                wiki_sources_retried = result.wiki_sources_retried,
-                                wiki_sources_quarantined = result.wiki_sources_quarantined,
-                                wiki_auto_publications_deferred = result.wiki_auto_publications_deferred,
-                                wiki_drive_event_deliveries_renewed = result.wiki_drive_event_deliveries_renewed,
-                                wiki_drive_event_delivery_relays_verified = result.wiki_drive_event_delivery_relays_verified,
-                                wiki_drive_event_delivery_failures = result.wiki_drive_event_delivery_failures,
-                                "knowledgebase worker maintenance tick"
-                            );
-                        }
-                    }
-                    Err(error) => {
-                        sdkwork_knowledgebase_observability::record_worker_maintenance_failure();
-                        tracing::error!(
-                            error = %error,
-                            "knowledgebase worker maintenance tick failed"
-                        );
-                    }
+                let maintenance = config.maintenance.clone();
+                let mut result = MaintenanceTickResult::default();
+
+                // 0. outbox
+                if let Some(PhaseResult::Outbox(outbox)) = drive_phase(0, phase_budget, &mut phases.outbox, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        run_outbox_phase(&runtime, &maintenance).await.map(PhaseResult::Outbox)
+                    })
+                }).await {
+                    sdkwork_knowledgebase_observability::record_outbox_maintenance_batch(
+                        outbox.requeued,
+                        outbox.published,
+                        outbox.failed,
+                        outbox.dead_lettered,
+                    );
+                    result.outbox_requeued = outbox.requeued;
+                    result.outbox_published = outbox.published;
+                    result.outbox_failed = outbox.failed;
+                    result.outbox_dead_lettered = outbox.dead_lettered;
+                }
+
+                // 1. ingestion
+                if let Some(PhaseResult::Ingestion(processed)) = drive_phase(1, phase_budget, &mut phases.ingestion, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        run_ingestion_phase(&runtime, &maintenance).await.map(PhaseResult::Ingestion)
+                    })
+                }).await {
+                    result.ingestion_jobs_processed = processed;
+                }
+
+                // 2. provider migration
+                if let Some(PhaseResult::ProviderMigration(migrations)) = drive_phase(2, phase_budget, &mut phases.provider_migration, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        run_provider_migration_phase(&runtime, &maintenance).await.map(PhaseResult::ProviderMigration)
+                    })
+                }).await {
+                    result.provider_migration_phases_processed = migrations.processed;
+                    result.provider_migrations_completed = migrations.completed;
+                    result.provider_migrations_rolled_back = migrations.rolled_back;
+                    result.provider_migrations_failed = migrations.failed;
+                }
+
+                // 3. group archive
+                if let Some(PhaseResult::GroupArchives(processed)) = drive_phase(3, phase_budget, &mut phases.group_archive, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        Ok(PhaseResult::GroupArchives(run_group_archive_phase(&runtime, &maintenance).await))
+                    })
+                }).await {
+                    result.group_archives_processed = processed;
+                }
+
+                // 4. wiki backfill
+                if let Some(PhaseResult::WikiBackfill((initialized, failed))) = drive_phase(4, phase_budget, &mut phases.wiki_backfill, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        run_wiki_backfill_phase(&runtime, &maintenance).await.map(PhaseResult::WikiBackfill)
+                    })
+                }).await {
+                    result.wiki_publications_initialized = initialized;
+                    result.wiki_publications_failed = failed;
+                }
+
+                // 5. wiki drive relay
+                if let Some(PhaseResult::WikiDriveRelay(relay)) = drive_phase(5, phase_budget, &mut phases.wiki_drive_relay, {
+                    let runtime = runtime.clone();
+                    || tokio::spawn(async move {
+                        run_wiki_drive_relay_phase(&runtime).await.map(PhaseResult::WikiDriveRelay)
+                    })
+                }).await {
+                    result.wiki_drive_outbox_events_processed = relay.processed;
+                    result.wiki_drive_outbox_events_delivered = relay.delivered;
+                    result.wiki_drive_outbox_events_failed = relay.failed;
+                }
+
+                // 6. wiki drive events
+                if let Some(PhaseResult::WikiDrive(drive)) = drive_phase(6, phase_budget, &mut phases.wiki_drive_events, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    move || tokio::spawn(async move {
+                        let worker_id = maintenance.worker_id.clone();
+                        let wiki_drive_events = maintenance.wiki_drive_events;
+                        run_wiki_drive_phase(&runtime, &worker_id, wiki_drive_events, wiki_checkpoint_cursor)
+                            .await.map(PhaseResult::WikiDrive)
+                    })
+                }).await {
+                    result.wiki_drive_checkpoints_processed = drive.checkpoints_processed;
+                    result.wiki_drive_events_applied = drive.events.applied;
+                    result.wiki_drive_events_retried = drive.events.retried;
+                    result.wiki_drive_events_dead_lettered = drive.events.dead_lettered;
+                    result.wiki_drive_public_changes = drive.events.public_changes;
+                    result.wiki_drive_next_after_checkpoint_id = drive.next_after_checkpoint_id;
+                }
+
+                // 7. wiki sources
+                if let Some(PhaseResult::WikiSources(sources)) = drive_phase(7, phase_budget, &mut phases.wiki_sources, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    move || tokio::spawn(async move {
+                        let worker_id = maintenance.worker_id.clone();
+                        let wiki_drive_events = maintenance.wiki_drive_events;
+                        run_wiki_source_phase(&runtime, &worker_id, wiki_drive_events, wiki_checkpoint_cursor)
+                            .await.map(PhaseResult::WikiSources)
+                    })
+                }).await {
+                    result.wiki_sources_claimed = sources.sources_claimed;
+                    result.wiki_sources_ready = sources.sources_ready;
+                    result.wiki_sources_auto_published = sources.sources_auto_published;
+                    result.wiki_sources_retried = sources.sources_retried;
+                    result.wiki_sources_quarantined = sources.sources_quarantined;
+                    result.wiki_auto_publications_deferred = sources.auto_publications_deferred;
+                }
+
+                // 8. wiki delivery renewal
+                if let Some(PhaseResult::WikiDelivery(delivery)) = drive_phase(8, phase_budget, &mut phases.wiki_delivery_renewal, {
+                    let runtime = runtime.clone();
+                    let maintenance = maintenance.clone();
+                    || tokio::spawn(async move {
+                        run_wiki_delivery_phase(&runtime, &maintenance, renew_wiki_event_deliveries, wiki_delivery_cursor)
+                            .await.map(PhaseResult::WikiDelivery)
+                    })
+                }).await {
+                    log_delivery_renewal_failures(&delivery);
+                    result.wiki_drive_event_deliveries_renewed = delivery.cloud_deliveries_renewed;
+                    result.wiki_drive_event_delivery_relays_verified = delivery.embedded_relays_verified;
+                    result.wiki_drive_event_delivery_failures = delivery.failures.len();
+                    result.wiki_drive_next_after_event_delivery_checkpoint_id = delivery.next_after_checkpoint_id;
+                }
+
+                if let Some(next) = result.wiki_drive_next_after_checkpoint_id {
+                    wiki_checkpoint_cursor = Some(next);
+                }
+                if let Some(next) = result.wiki_drive_next_after_event_delivery_checkpoint_id {
+                    wiki_delivery_cursor = Some(next);
+                }
+
+                if maintenance_tick_has_activity(&result) {
+                    tracing::info!(
+                        outbox_requeued = result.outbox_requeued,
+                        outbox_published = result.outbox_published,
+                        outbox_failed = result.outbox_failed,
+                        outbox_dead_lettered = result.outbox_dead_lettered,
+                        ingestion_jobs_processed = result.ingestion_jobs_processed,
+                        provider_migration_phases_processed = result.provider_migration_phases_processed,
+                        provider_migrations_completed = result.provider_migrations_completed,
+                        provider_migrations_rolled_back = result.provider_migrations_rolled_back,
+                        provider_migrations_failed = result.provider_migrations_failed,
+                        group_archives_processed = result.group_archives_processed,
+                        wiki_publications_initialized = result.wiki_publications_initialized,
+                        wiki_publications_failed = result.wiki_publications_failed,
+                        wiki_drive_outbox_events_processed = result.wiki_drive_outbox_events_processed,
+                        wiki_drive_outbox_events_delivered = result.wiki_drive_outbox_events_delivered,
+                        wiki_drive_outbox_events_failed = result.wiki_drive_outbox_events_failed,
+                        wiki_drive_checkpoints_processed = result.wiki_drive_checkpoints_processed,
+                        wiki_drive_events_applied = result.wiki_drive_events_applied,
+                        wiki_drive_events_retried = result.wiki_drive_events_retried,
+                        wiki_drive_events_dead_lettered = result.wiki_drive_events_dead_lettered,
+                        wiki_drive_public_changes = result.wiki_drive_public_changes,
+                        wiki_sources_claimed = result.wiki_sources_claimed,
+                        wiki_sources_ready = result.wiki_sources_ready,
+                        wiki_sources_auto_published = result.wiki_sources_auto_published,
+                        wiki_sources_retried = result.wiki_sources_retried,
+                        wiki_sources_quarantined = result.wiki_sources_quarantined,
+                        wiki_auto_publications_deferred = result.wiki_auto_publications_deferred,
+                        wiki_drive_event_deliveries_renewed = result.wiki_drive_event_deliveries_renewed,
+                        wiki_drive_event_delivery_relays_verified = result.wiki_drive_event_delivery_relays_verified,
+                        wiki_drive_event_delivery_failures = result.wiki_drive_event_delivery_failures,
+                        "knowledgebase worker maintenance tick"
+                    );
                 }
             }
             _ = shutdown_signal() => {
@@ -469,6 +762,35 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
             }
         }
     }
+}
+
+fn maintenance_tick_has_activity(result: &MaintenanceTickResult) -> bool {
+    result.outbox_requeued > 0
+        || result.outbox_published > 0
+        || result.outbox_failed > 0
+        || result.outbox_dead_lettered > 0
+        || result.ingestion_jobs_processed > 0
+        || result.provider_migration_phases_processed > 0
+        || result.group_archives_processed > 0
+        || result.wiki_publications_initialized > 0
+        || result.wiki_publications_failed > 0
+        || result.wiki_drive_outbox_events_processed > 0
+        || result.wiki_drive_outbox_events_delivered > 0
+        || result.wiki_drive_outbox_events_failed > 0
+        || result.wiki_drive_checkpoints_processed > 0
+        || result.wiki_drive_events_applied > 0
+        || result.wiki_drive_events_retried > 0
+        || result.wiki_drive_events_dead_lettered > 0
+        || result.wiki_drive_public_changes > 0
+        || result.wiki_sources_claimed > 0
+        || result.wiki_sources_ready > 0
+        || result.wiki_sources_auto_published > 0
+        || result.wiki_sources_retried > 0
+        || result.wiki_sources_quarantined > 0
+        || result.wiki_auto_publications_deferred > 0
+        || result.wiki_drive_event_deliveries_renewed > 0
+        || result.wiki_drive_event_delivery_relays_verified > 0
+        || result.wiki_drive_event_delivery_failures > 0
 }
 
 #[cfg(test)]
@@ -481,6 +803,7 @@ mod tests {
             outbox_requeued: 1,
             outbox_published: 2,
             outbox_failed: 1,
+            outbox_dead_lettered: 0,
             ingestion_jobs_processed: 3,
             provider_migration_phases_processed: 5,
             provider_migrations_completed: 1,
@@ -512,6 +835,7 @@ mod tests {
         assert_eq!(result.outbox_requeued, 1);
         assert_eq!(result.outbox_published, 2);
         assert_eq!(result.outbox_failed, 1);
+        assert_eq!(result.outbox_dead_lettered, 0);
         assert_eq!(result.ingestion_jobs_processed, 3);
         assert_eq!(result.provider_migration_phases_processed, 5);
         assert_eq!(result.provider_migrations_completed, 1);

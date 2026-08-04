@@ -44,11 +44,19 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
             );
             match self.dispatcher.dispatch(self.tenant_id, event).await {
                 Ok(()) => {
-                    self.outbox
-                        .mark_published(&claimed)
-                        .await
-                        .map_err(KnowledgeOutboxPublisherServiceError::Store)?;
-                    published += 1;
+                    // A stale/fenced completion must not abort the rest of the
+                    // batch: the event is left CLAIMED and will be released by
+                    // the stale-claim sweep (at-least-once redelivery), while
+                    // the remaining claimed events keep being processed.
+                    if let Err(error) = self.outbox.mark_published(&claimed).await {
+                        tracing::error!(
+                            event_id = event.id,
+                            error = %error,
+                            "knowledgebase outbox mark_published failed; event remains claimed and will be released by the stale-claim sweep"
+                        );
+                    } else {
+                        published += 1;
+                    }
                 }
                 Err(error) => {
                     tracing::warn!(
@@ -56,11 +64,15 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
                         error = %error,
                         "knowledgebase outbox dispatch failed"
                     );
-                    self.outbox
-                        .mark_failed(&claimed, &error.to_string())
-                        .await
-                        .map_err(KnowledgeOutboxPublisherServiceError::Store)?;
-                    failed += 1;
+                    if let Err(mark_error) = self.outbox.mark_failed(&claimed, &error.to_string()).await {
+                        tracing::error!(
+                            event_id = event.id,
+                            error = %mark_error,
+                            "knowledgebase outbox mark_failed failed; event remains claimed and will be released by the stale-claim sweep"
+                        );
+                    } else {
+                        failed += 1;
+                    }
                 }
             }
         }
@@ -69,6 +81,7 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
             requeued: 0,
             published,
             failed,
+            dead_lettered: 0,
         })
     }
 }
@@ -78,6 +91,10 @@ pub struct OutboxPublishBatchResult {
     pub requeued: usize,
     pub published: usize,
     pub failed: usize,
+    /// Events moved to the dead-letter status by the requeue sweep. The
+    /// publisher itself never dead-letters; the runtime fills this from the
+    /// requeue store result.
+    pub dead_lettered: usize,
 }
 
 #[derive(Debug, Error)]
@@ -95,7 +112,8 @@ mod tests {
     use super::*;
     use crate::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatchError;
     use crate::ports::knowledge_outbox_store::{
-        AppendOutboxEventRecord, ClaimedOutboxEvent, OutboxClaim, PendingOutboxEvent,
+        AppendOutboxEventRecord, ClaimedOutboxEvent, OutboxClaim, OutboxRequeueResult,
+        PendingOutboxEvent,
     };
 
     struct InMemoryOutboxStore {
@@ -214,8 +232,8 @@ mod tests {
             &self,
             _limit: u32,
             _max_retry_count: u32,
-        ) -> Result<usize, KnowledgeOutboxStoreError> {
-            Ok(0)
+        ) -> Result<OutboxRequeueResult, KnowledgeOutboxStoreError> {
+            Ok(OutboxRequeueResult::default())
         }
     }
 

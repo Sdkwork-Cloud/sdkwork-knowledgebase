@@ -9,6 +9,12 @@ import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 const BROWSER_NODE_CACHE_TTL_MS = 30_000;
 const BROWSER_CACHE_MAX_ENTRIES = 256;
 const DEFAULT_BROWSER_PAGE_SIZE = 100;
+/**
+ * Upper bound for node-resolution scans: a single space is scanned at most
+ * this many pages per resolution so a pathological space cannot trigger an
+ * unbounded request storm (PAGINATION_SPEC §8 on-demand paging).
+ */
+export const MAX_BROWSER_RESOLVE_SCAN_PAGES = 25;
 const browserParentCache = new Map<string, BrowserNodeCacheEntry>();
 
 interface BrowserNodeCacheEntry {
@@ -80,17 +86,37 @@ function rememberBrowserParentCacheEntry(
   nodes: KnowledgeBrowserNode[],
   nextCursor: string | null,
   hasMore: boolean,
+  append = false,
 ): void {
   purgeExpiredBrowserCacheEntries();
+  const previous = browserParentCache.get(cacheKey);
+  const mergedNodes =
+    append && previous && previous.view === view
+      ? mergeUniqueBrowserNodes(previous.nodes, nodes)
+      : nodes;
   browserParentCache.set(cacheKey, {
     fetchedAt: Date.now(),
     view,
     parentId,
-    nodes,
+    nodes: mergedNodes,
     nextCursor,
     hasMore,
   });
   trimBrowserCacheMaps();
+}
+
+function mergeUniqueBrowserNodes(
+  existing: KnowledgeBrowserNode[],
+  incoming: KnowledgeBrowserNode[],
+): KnowledgeBrowserNode[] {
+  const merged = new Map<string, KnowledgeBrowserNode>();
+  for (const node of existing) {
+    merged.set(node.id, node);
+  }
+  for (const node of incoming) {
+    merged.set(node.id, node);
+  }
+  return Array.from(merged.values());
 }
 
 function invalidateBrowserCachesForSpaceId(spaceId: string): void {
@@ -194,16 +220,18 @@ export async function listKnowledgeBrowserNodesPage(
   const nextCursor = normalized.nextCursor;
   const hasMore = normalized.hasMore;
 
-  if (!cursor) {
-    rememberBrowserParentCacheEntry(
-      cacheKey,
-      view,
-      pageParentId,
-      normalized.items,
-      nextCursor,
-      hasMore,
-    );
-  }
+  // First pages replace the cached window; continuation pages append so a
+  // resolution scan fills the cache and later lookups hit it instead of
+  // re-scanning the space.
+  rememberBrowserParentCacheEntry(
+    cacheKey,
+    view,
+    pageParentId,
+    normalized.items,
+    nextCursor,
+    hasMore,
+    cursor !== null,
+  );
 
   return {
     parentId: pageParentId,
@@ -245,6 +273,40 @@ export async function listLoadedKnowledgeBrowserNodes(
     await listKnowledgeBrowserNodesForParent(spaceId, null, { view });
   }
   return getLoadedKnowledgeBrowserNodes(spaceId, { view });
+}
+
+export interface KnowledgeBrowserNodeScanOptions {
+  view?: KnowledgeBrowserView;
+  fresh?: boolean;
+}
+
+/**
+ * Scans a space page by page until `predicate` matches or the bounded page
+ * budget is exhausted. Every visited page is cached (append mode), so repeated
+ * resolutions hit the cache instead of re-scanning. Returns the first match.
+ */
+export async function scanKnowledgeBrowserNodes(
+  spaceId: string,
+  predicate: (node: KnowledgeBrowserNode) => boolean,
+  options?: KnowledgeBrowserNodeScanOptions,
+): Promise<KnowledgeBrowserNode | null> {
+  const view = options?.view ?? DEFAULT_BROWSER_VIEW;
+  let cursor: string | null = null;
+  let pages = 0;
+  do {
+    const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
+      cursor,
+      fresh: options?.fresh === true && cursor === null,
+      view,
+    });
+    const found = page.items.find(predicate);
+    if (found) {
+      return found;
+    }
+    cursor = page.hasMore ? page.nextCursor : null;
+    pages += 1;
+  } while (cursor && pages < MAX_BROWSER_RESOLVE_SCAN_PAGES);
+  return null;
 }
 
 export function findKnowledgeBrowserNodeByDocumentId(

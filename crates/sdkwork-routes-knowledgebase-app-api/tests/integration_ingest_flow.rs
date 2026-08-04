@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
     let runtime = test_runtime().await;
@@ -50,6 +51,7 @@ async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_retrieves_document_content_via_contract_route() {
     let runtime = test_runtime().await;
@@ -142,6 +144,7 @@ async fn integration_hosted_ingest_retrieves_document_content_via_contract_route
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_lists_document_versions_via_contract_route() {
     let runtime = test_runtime().await;
@@ -225,6 +228,7 @@ async fn integration_hosted_ingest_lists_document_versions_via_contract_route() 
     assert_eq!(json_u64_field(&items[0], "documentId"), Some(document_id));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_updates_document_visibility_via_contract_route() {
     let runtime = test_runtime().await;

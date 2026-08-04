@@ -9,6 +9,12 @@ use sqlx::{AnyPool, Row};
 const ACTIVE_STATUS: i64 = 1;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
+/// OKF state for documents that are not OKF concepts. OKF concept documents
+/// carry their real publish state through `KnowledgeBrowserOkfConceptProjection`
+/// (which takes precedence in the browser service); this fallback must never be
+/// reported for a concept-owned document.
+const OKF_STATE_NONE: &str = "none";
+
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeBrowserProjectionStore {
     pool: AnyPool,
@@ -111,7 +117,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
                     ingest_state,
                     parse_state: parse_state_name,
                     index_state: index_state_name,
-                    okf_state: "none".to_string(),
+                    okf_state: OKF_STATE_NONE.to_string(),
                 })
             })
             .collect()

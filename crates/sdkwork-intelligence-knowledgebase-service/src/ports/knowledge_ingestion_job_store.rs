@@ -123,6 +123,9 @@ pub struct ClaimIngestionJobsRequest {
     pub claim_owner: String,
     pub lease_duration: Duration,
     pub limit: u32,
+    /// Maximum claim attempts before a repeatedly crashing or lease-losing job
+    /// is failed permanently instead of being retried forever.
+    pub max_attempts: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

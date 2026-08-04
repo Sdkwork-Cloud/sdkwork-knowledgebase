@@ -4,6 +4,7 @@ import {
   Cpu, Music, ArrowRight, Download, Wand2, Eye, RefreshCw, Scissors, Film, FolderOutput
 } from 'lucide-react';
 import { DocumentMeta, KnowledgeBase, DocumentService } from '../../services/document';
+import { shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import { MoveCopyModal } from '../../MoveCopyModal';
 import { useTranslation } from 'react-i18next';
 export interface VideoPlayerProps {
@@ -71,7 +72,6 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
         parentId: targetFolderId,
         url: activeDoc.url,
         content: activeDoc.content || '',
-        size: resultMeta?.sizeStr || '18.4 MB',
         author: 'Me'
       });
 
@@ -108,13 +108,19 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
   const processIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const processTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // AI video toolkit is a preview/demo simulation only, gated the same way as
+  // ImageViewer: it never renders in production unless demo mode is explicitly enabled.
+  const aiToolsEnabled = shouldUseKnowledgebaseDemoFallback();
+
   useEffect(() => {
     return () => {
       if (processIntervalRef.current) {
         clearInterval(processIntervalRef.current);
+        processIntervalRef.current = null;
       }
       if (processTimeoutRef.current) {
         clearTimeout(processTimeoutRef.current);
+        processTimeoutRef.current = null;
       }
     };
   }, []);
@@ -146,7 +152,8 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
   }, [activeDoc.id]);
 
   const startVideoToolPipeline = (toolId: VideoToolType) => {
-    if (isProcessing) return;
+    // Demo simulation only — never runs in production.
+    if (isProcessing || !aiToolsEnabled) return;
     setActiveTool(toolId);
     setIsProcessing(true);
     setProcessProgress(0);
@@ -440,7 +447,9 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
             </div>
           </div>
 
-          {/* Middle Side: AI Toolkit & inline progression */}
+          {/* Middle Side: AI Toolkit — preview/demo only until real video processing APIs ship.
+              Never rendered in production unless demo mode is explicitly enabled. */}
+          {aiToolsEnabled && (
           <div className="flex-1 flex items-center justify-end md:justify-center gap-2 overflow-x-auto no-scrollbar scroll-smooth">
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
               <Cpu size={12} className="text-orange-500" />
@@ -532,6 +541,7 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
               )}
             </div>
           </div>
+          )}
 
           {/* Right Side: Execution feedback or download buttons */}
           <div className="flex items-center gap-1.5 shrink-0 ml-2">

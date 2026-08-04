@@ -250,7 +250,14 @@ async fn execute_idempotent_sqlite_statement(
 }
 
 fn is_idempotent_sqlite_schema_error(message: &str) -> bool {
-    message.contains("duplicate column name") || message.contains("already exists")
+    // SQLite does not support `ADD COLUMN IF NOT EXISTS` (or index/table
+    // `IF NOT EXISTS` for every shape), so the schema installer replays
+    // migrations and tolerates exactly these idempotency signals. Anything
+    // else — including a genuine "no such column" or syntax failure — must
+    // fail loudly instead of being masked.
+    message.contains("duplicate column name")
+        || (message.contains("already exists")
+            && (message.contains("index") || message.contains("table")))
 }
 
 fn migration_contains_trigger_program(migration: &str) -> bool {
@@ -362,7 +369,7 @@ mod tests {
             "'provisioning', 'active', 'failed', 'archived', 'deleted'",
             1,
         );
-        sqlx::raw_sql(&historic_group_migration)
+        sqlx::raw_sql(sqlx::AssertSqlSafe(historic_group_migration.as_str()))
             .execute(&mut *connection)
             .await
             .expect("install historic group binding table");

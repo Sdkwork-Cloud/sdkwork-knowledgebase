@@ -1,4 +1,4 @@
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use thiserror::Error;
 
 use crate::knowledge_embedding_build::{
@@ -22,7 +22,7 @@ pub async fn embed_rag_index_chunks(
     index_id: u64,
     space_id: u64,
     embedding_store: &dyn KnowledgeEmbeddingStore,
-    embedder: ClawRouterEmbeddingClient,
+    embedder: CloudRouterEmbeddingClient,
 ) -> Result<usize, RagIndexRebuildError> {
     let build = KnowledgeEmbeddingBuildService::new(embedding_store, embedder);
     build
@@ -36,11 +36,11 @@ pub async fn rebuild_rag_index_for_space(
     space_id: u64,
     index_store: &dyn KnowledgeIndexStore,
     embedding_store: &dyn KnowledgeEmbeddingStore,
-    embedder: Option<ClawRouterEmbeddingClient>,
+    embedder: Option<CloudRouterEmbeddingClient>,
 ) -> Result<usize, RagIndexRebuildError> {
     let embedder = embedder.ok_or_else(|| {
         RagIndexRebuildError::MissingEmbedder(
-            "claw-router embedding client is required for rag index rebuild".to_string(),
+            "cloud-router embedding client is required for rag index rebuild".to_string(),
         )
     })?;
 

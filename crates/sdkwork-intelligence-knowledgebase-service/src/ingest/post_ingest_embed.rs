@@ -3,21 +3,21 @@ use crate::knowledge_embedding_index::{
 };
 use crate::ports::knowledge_chunk_store::KnowledgeChunkStore;
 use crate::ports::knowledge_embedding_store::KnowledgeEmbeddingStore;
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::rag::KnowledgeIndex;
 use thiserror::Error;
 
 pub struct KnowledgePostIngestEmbeddingService<'a> {
     chunks: &'a dyn KnowledgeChunkStore,
     embeddings: &'a dyn KnowledgeEmbeddingStore,
-    embedder: ClawRouterEmbeddingClient,
+    embedder: CloudRouterEmbeddingClient,
 }
 
 impl<'a> KnowledgePostIngestEmbeddingService<'a> {
     pub fn new(
         chunks: &'a dyn KnowledgeChunkStore,
         embeddings: &'a dyn KnowledgeEmbeddingStore,
-        embedder: ClawRouterEmbeddingClient,
+        embedder: CloudRouterEmbeddingClient,
     ) -> Self {
         Self {
             chunks,

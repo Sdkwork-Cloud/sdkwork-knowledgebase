@@ -79,7 +79,18 @@ Derived copies are never edited as competing contract authorities.
 - HTTP boundaries: `sdkwork-routes-knowledgebase-{app,backend,open}-api`
 - Background work: `sdkwork-knowledgebase-worker` (outbox, ingest, group archive, and Provider
   migration maintenance)
-- Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
+- Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Jobs whose lease expired at/over `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_MAX_ATTEMPTS` claims are failed permanently instead of being reclaimed forever. Chunk replacement, job completion, and outbox append remain one database transaction.
+- The worker maintenance loop drives each domain (outbox, ingestion, Provider migration, group
+  archive, wiki backfill/relay/events/sources/delivery renewal) under its own time budget with
+  panic and error isolation: one slow webhook or panicking phase can delay only its own domain,
+  never starve the others. A phase that exceeds its budget (`SDKWORK_KNOWLEDGEBASE_WORKER_PHASE_TIMEOUT_SECONDS`,
+  default 60 s) keeps running in the background and is reaped by later ticks (at most one instance
+  per phase). Missed ticks are skipped, never burst-caught-up.
+- Outbox delivery failures are scheduled with exponential backoff
+  (30 s doubling to a 1 h cap, stored as `next_attempt_at`) so dead webhooks are not hammered every
+  poll interval; events that exhaust `SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES` move to the
+  dead-letter status with an error-level log and a `knowledgebase_outbox_events_total{status="dead_lettered"}`
+  metric. A stale/fenced completion never aborts the rest of the dispatch batch.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
 - PostgreSQL is authoritative for server runtimes. Every process pool is created with fixed
   `app.current_tenant_id` and `app.current_organization_id` connection settings. Business RLS
@@ -87,6 +98,12 @@ Derived copies are never edited as competing contract authorities.
   non-owner role. Server repository bootstrap rejects file-backed SQLite; only in-memory SQLite is
   retained as a deterministic test fixture. Client-owned local persistence must use its own bounded
   storage adapter and is never an application-server profile or authoritative shared storage.
+- PostgreSQL migrations execute atomically (scripts without an explicit transaction boundary are
+  wrapped in BEGIN/COMMIT by `sdkwork-database-lifecycle`), so a mid-script failure never leaves a
+  partially migrated schema. The `202607310002_outbox_claim_fencing` migration resets only stale
+  in-flight outbox claims (claimed longer than the five-minute stale window), preserving
+  mid-delivery workers from silent duplicate delivery; the SQLite fixture migration carries the
+  same guarded reset.
 - Gateway, worker, and internal RPC processes enable the SDKWork process-shared database pool before
   module bootstrap. `SDKWORK_DATABASE_MAX_CONNECTIONS` is one combined process budget split between
   one scoped typed `PgPool` and one scoped `AnyPool` compatibility pool; odd budgets favor the typed
@@ -94,7 +111,7 @@ Derived copies are never edited as competing contract authorities.
   typed handle. The remaining `AnyPool` compatibility driver must be removed before the first
   commercial production release; see
   [ADR-20260730-knowledgebase-process-shared-database-pool.md](../decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md).
-- Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
+- Media tasks consume the generated `cloudrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - WeChat account/applet configuration is a tenant-scoped Drive object with a 1 MiB read/write
   boundary, encrypted secret fields, bounded unique entries, and fail-closed storage errors. A
   replacement contains at most 100 resources and each domain array at most 50 values. IDs/names are
@@ -129,9 +146,10 @@ Derived copies are never edited as competing contract authorities.
   cannot be complete. It never returns a silently truncated archive. Larger data-subject exports
   require a future cursor-based or asynchronous contract with generated SDK support. Automated
   retention and legal-hold-aware batch purge are not implemented and remain commercial launch
-  gates; the 365/90/30-day retention values are policy targets only. SQLite has the matching
-  organization/actor/order composite index, but PostgreSQL does not yet; a reviewed PostgreSQL
-  migration plus query-plan and concurrency evidence is required before commercial activation.
+  gates; the 365/90/30-day retention values are policy targets only. The matching
+  `(tenant_id, organization_id, actor_id, created_at DESC, id DESC)` composite index now exists on
+  PostgreSQL (`202608040002_audit_event_scope_actor_index`); query-plan and concurrency evidence
+  under load remains a commercial activation gate.
 - The persistence contract stores only write-only Provider credential references, never plaintext
   credentials. Binding lifecycle and Provider-to-Provider migration checkpoints are
   tenant/organization scoped, version-fenced, RLS protected, and retain predecessors for rollback.
@@ -188,7 +206,12 @@ Derived copies are never edited as competing contract authorities.
 
 ## 4. Security Model
 
-- Production boot is fail-closed: Postgres, Redis rate limiting, secrets encryption, web audit persistence
+- Production/staging boot is fail-closed on the standalone gateway: distributed Redis rate
+  limiting, idempotency, and concurrent-admission stores (via `SDKWORK_KNOWLEDGEBASE_REDIS_*`), a
+  JWT issuer/audience claim policy for `sdkwork-knowledgebase-pc`, IAM audit/security-event
+  emitters, and PostgreSQL are all required; `SDKWORK_KNOWLEDGEBASE_ENVIRONMENT` is the single
+  environment authority and is exported as `SDKWORK_ENVIRONMENT` so the web framework and
+  knowledgebase-local checks can never disagree
 - Backend OpenAPI declares `x-sdkwork-permission: knowledge.platform.manage` on all protected operations
 - Public ingress exposes API paths only; `/metrics` is scraped via ServiceMonitor inside the cluster
 - PC production builds disable demo/mock API fallbacks

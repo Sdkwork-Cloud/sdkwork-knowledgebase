@@ -157,9 +157,10 @@ async fn sqlite_okf_concept_store_denies_cross_organization_reads() {
         .await
         .is_err());
     assert!(other_organization_store
-        .list_all_concept_summaries()
+        .list_concept_summaries_page(7, None, 50)
         .await
         .unwrap()
+        .0
         .is_empty());
 }
 

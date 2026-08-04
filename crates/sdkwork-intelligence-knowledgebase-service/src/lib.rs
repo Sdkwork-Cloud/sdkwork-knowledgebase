@@ -17,7 +17,6 @@ pub mod ingest;
 pub mod knowledge_embedding_build;
 pub mod knowledge_embedding_index;
 pub mod knowledge_engine;
-pub mod mirror;
 pub mod okf;
 pub mod outbox;
 pub mod ports;

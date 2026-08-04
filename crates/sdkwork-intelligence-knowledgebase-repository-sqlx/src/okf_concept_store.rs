@@ -83,39 +83,6 @@ impl SqliteKnowledgeOkfConceptStore {
         Ok(revision_no)
     }
 
-    pub async fn list_all_concept_summaries(
-        &self,
-    ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
-        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let organization_id = to_i64("organization_id", self.organization_id)?;
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                title,
-                concept_id,
-                concept_type,
-                logical_path,
-                description,
-                source_count,
-                CAST(updated_at AS TEXT) AS updated_at,
-                CAST(tags AS TEXT) AS tags
-            FROM kb_okf_concept
-            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
-            ORDER BY space_id ASC, concept_type ASC, title ASC, id ASC
-            LIMIT $4
-            "#,
-        )
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(ACTIVE_STATUS)
-        .bind(MAX_OKF_LIST_ROWS)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
-
-        rows.into_iter().map(description_from_row).collect()
-    }
-
     pub async fn get_concept_by_row_id(
         &self,
         concept_row_id: u64,

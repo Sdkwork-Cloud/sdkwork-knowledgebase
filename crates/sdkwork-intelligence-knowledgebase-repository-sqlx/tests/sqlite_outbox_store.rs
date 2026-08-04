@@ -117,11 +117,35 @@ async fn sqlite_outbox_store_requeues_failed_events_under_retry_limit() {
         .await
         .expect("mark failed");
 
+    // Exponential backoff: a just-failed event is not due again yet.
+    let not_due = store
+        .requeue_failed_events(10, 5)
+        .await
+        .expect("requeue failed events");
+    assert_eq!(not_due.requeued, 0);
+    assert_eq!(not_due.dead_lettered, 0);
+
+    // After the backoff window elapses the event becomes requeueable.
+    let past = time::OffsetDateTime::now_utc()
+        .checked_sub(time::Duration::minutes(5))
+        .expect("past timestamp")
+        .format(&time::format_description::well_known::Rfc3339)
+        .expect("format past timestamp");
+    let expire_backoff_sql = format!(
+        "UPDATE kb_outbox_event SET next_attempt_at = '{past}' WHERE tenant_id = 1 AND organization_id = 7 AND id = {}",
+        claimed.event.id
+    );
+    sqlx::query(sqlx::AssertSqlSafe(expire_backoff_sql.as_str()))
+        .execute(&pool)
+        .await
+        .expect("expire backoff window");
+
     let requeued = store
         .requeue_failed_events(10, 5)
         .await
         .expect("requeue failed events");
-    assert_eq!(requeued, 1);
+    assert_eq!(requeued.requeued, 1);
+    assert_eq!(requeued.dead_lettered, 0);
 
     let pending: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 0",
@@ -241,13 +265,12 @@ async fn sqlite_outbox_store_isolates_organizations_and_dead_letters_exhausted_e
         .mark_failed(&claimed, "permanent failure")
         .await
         .expect("mark failed");
-    assert_eq!(
-        organization_seven
-            .requeue_failed_events(10, 1)
-            .await
-            .expect("dead letter exhausted event"),
-        0
-    );
+    let exhausted = organization_seven
+        .requeue_failed_events(10, 1)
+        .await
+        .expect("dead letter exhausted event");
+    assert_eq!(exhausted.requeued, 0);
+    assert_eq!(exhausted.dead_lettered, 1);
     let dead_letter_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 4 AND dead_lettered_at IS NOT NULL",
     )

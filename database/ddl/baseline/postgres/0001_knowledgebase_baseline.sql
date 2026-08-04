@@ -862,7 +862,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_group_knowledge_space_membership_projection_le
        (tenant_id, organization_id, binding_id, projection_state, projection_lease_until);
 
 -- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606170001__knowledge_access_mode.sql
--- Knowledge access mode defaults and embedding vector storage for claw-router RAG.
+-- Knowledge access mode defaults and embedding vector storage for cloud-router RAG.
 
 ALTER TABLE kb_agent_profile
     ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'okf_bundle';

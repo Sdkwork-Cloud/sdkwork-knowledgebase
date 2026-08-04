@@ -54,21 +54,77 @@ static HEALTH_STATUS: AtomicU64 = AtomicU64::new(1);
 static OUTBOX_REQUEUED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static OUTBOX_PUBLISHED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static OUTBOX_FAILED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static OUTBOX_DEAD_LETTERED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static WORKER_MAINTENANCE_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static WORKER_PHASE_FAILURES_TOTAL: [AtomicU64; 9] = [
+    AtomicU64::new(0), // outbox
+    AtomicU64::new(0), // ingestion
+    AtomicU64::new(0), // provider_migration
+    AtomicU64::new(0), // group_archive
+    AtomicU64::new(0), // wiki_backfill
+    AtomicU64::new(0), // wiki_drive_relay
+    AtomicU64::new(0), // wiki_drive_events
+    AtomicU64::new(0), // wiki_sources
+    AtomicU64::new(0), // wiki_delivery_renewal
+];
+
+/// Canonical worker phase names, index-aligned with [`WORKER_PHASE_FAILURES_TOTAL`].
+pub const WORKER_PHASE_NAMES: [&str; 9] = [
+    "outbox",
+    "ingestion",
+    "provider_migration",
+    "group_archive",
+    "wiki_backfill",
+    "wiki_drive_relay",
+    "wiki_drive_events",
+    "wiki_sources",
+    "wiki_delivery_renewal",
+];
 
 /// Update the exported readiness gauge (`1` = dependencies ready, `0` = not ready).
 pub fn set_readiness_status(ready: bool) {
     HEALTH_STATUS.store(u64::from(ready), Ordering::Relaxed);
 }
 
-pub fn record_outbox_maintenance_batch(requeued: usize, published: usize, failed: usize) {
+pub fn record_outbox_maintenance_batch(
+    requeued: usize,
+    published: usize,
+    failed: usize,
+    dead_lettered: usize,
+) {
     OUTBOX_REQUEUED_TOTAL.fetch_add(requeued as u64, Ordering::Relaxed);
     OUTBOX_PUBLISHED_TOTAL.fetch_add(published as u64, Ordering::Relaxed);
     OUTBOX_FAILED_TOTAL.fetch_add(failed as u64, Ordering::Relaxed);
+    OUTBOX_DEAD_LETTERED_TOTAL.fetch_add(dead_lettered as u64, Ordering::Relaxed);
 }
 
 pub fn record_worker_maintenance_failure() {
     WORKER_MAINTENANCE_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Records a worker phase failure (error, panic, or time-budget exhaustion).
+///
+/// `phase_index` indexes [`WORKER_PHASE_NAMES`]; out-of-range indices are ignored.
+pub fn record_worker_phase_failure(phase_index: usize) {
+    if let Some(counter) = WORKER_PHASE_FAILURES_TOTAL.get(phase_index) {
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+fn render_worker_phase_failure_metrics() -> String {
+    WORKER_PHASE_NAMES
+        .iter()
+        .enumerate()
+        .map(|(index, name)| {
+            format!(
+                "knowledgebase_worker_phase_failures_total{{phase=\"{name}\"}} {}\n",
+                WORKER_PHASE_FAILURES_TOTAL
+                    .get(index)
+                    .map(|counter| counter.load(Ordering::Relaxed))
+                    .unwrap_or(0)
+            )
+        })
+        .collect()
 }
 
 pub async fn metrics_middleware(request: Request, next: Next) -> Response {
@@ -113,10 +169,13 @@ pub async fn metrics_handler() -> impl IntoResponse {
          knowledgebase_outbox_events_total{{status=\"requeued\"}} {}\n\
          knowledgebase_outbox_events_total{{status=\"published\"}} {}\n\
          knowledgebase_outbox_events_total{{status=\"failed\"}} {}\n\
+         knowledgebase_outbox_events_total{{status=\"dead_lettered\"}} {}\n\
          # HELP knowledgebase_worker_maintenance_failures_total Knowledgebase worker maintenance ticks that failed.\n\
          # TYPE knowledgebase_worker_maintenance_failures_total counter\n\
          knowledgebase_worker_maintenance_failures_total {}\n\
-         {}{}{}{}",
+         # HELP knowledgebase_worker_phase_failures_total Knowledgebase worker maintenance phases that errored, panicked, or exceeded their time budget.\n\
+         # TYPE knowledgebase_worker_phase_failures_total counter\n\
+         {}{}{}{}{}",
         REQUESTS_TOTAL.load(Ordering::Relaxed),
         REQUEST_ERRORS_TOTAL.load(Ordering::Relaxed),
         REQUEST_AUTH_FAILURES_TOTAL.load(Ordering::Relaxed),
@@ -125,7 +184,9 @@ pub async fn metrics_handler() -> impl IntoResponse {
         OUTBOX_REQUEUED_TOTAL.load(Ordering::Relaxed),
         OUTBOX_PUBLISHED_TOTAL.load(Ordering::Relaxed),
         OUTBOX_FAILED_TOTAL.load(Ordering::Relaxed),
+        OUTBOX_DEAD_LETTERED_TOTAL.load(Ordering::Relaxed),
         WORKER_MAINTENANCE_FAILURES_TOTAL.load(Ordering::Relaxed),
+        render_worker_phase_failure_metrics(),
         render_okf_prometheus_metrics(),
         audit::render_audit_prometheus_metrics(),
         billing_metrics::render_billing_prometheus_metrics(),

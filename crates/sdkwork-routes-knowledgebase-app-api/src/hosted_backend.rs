@@ -12,7 +12,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     retrieval::KnowledgeRetrievalService,
 };
 use sdkwork_knowledgebase_agent_provider::{
-    resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
+    resolve_cloud_router_client_from_env, CloudRouterEmbeddingClient,
 };
 use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
@@ -728,8 +728,8 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .map_err(|error| map_internal(error.to_string()))?;
 
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
-            if let Ok(client) = resolve_claw_router_client_from_env() {
-                let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
+            if let Ok(client) = resolve_cloud_router_client_from_env() {
+                let embedder = CloudRouterEmbeddingClient::new(Arc::new(client));
                 let _ = self
                     .runtime
                     .knowledge_engines()

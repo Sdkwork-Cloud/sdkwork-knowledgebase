@@ -1,17 +1,10 @@
 import { backendApiPath } from './paths';
 import type { ApiRequestOptions, HttpClient } from '../http/client';
 
-import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeEngineProviderBindingRequest, CreateKnowledgeEngineProviderCredentialReferenceRequest, CreateKnowledgeEngineProviderMigrationOperationRequest, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingPage, KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialReferencePage, KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationOperationPage, KnowledgeEngineProviderMigrationState, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo, ProviderBindingVersionCommandRequest, ProviderMigrationVersionCommandRequest, RevokeKnowledgeEngineProviderCredentialReferenceRequest, RotateKnowledgeEngineProviderCredentialReferenceRequest, SdkWorkCommandData, UpdateKnowledgeEngineProviderBindingRequest } from '../types';
+import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeEngineProviderBindingRequest, CreateKnowledgeEngineProviderCredentialReferenceRequest, CreateKnowledgeEngineProviderMigrationOperationRequest, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, GroupKnowledgebaseLaunchCapability, IngestionJob, KnowledgeAuditEventExport, KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingPage, KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialReferencePage, KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationOperationPage, KnowledgeEngineProviderMigrationState, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo, ProviderBindingVersionCommandRequest, ProviderMigrationVersionCommandRequest, RevokeKnowledgeEngineProviderCredentialReferenceRequest, RotateKnowledgeEngineProviderCredentialReferenceRequest, SdkWorkCommandData, UpdateKnowledgeEngineProviderBindingRequest } from '../types';
 
 
-export interface KnowledgeProviderCredentialReferencesListParams {
-  implementationId?: string;
-  rotationState?: KnowledgeEngineProviderCredentialRotationState;
-  cursor?: string;
-  pageSize?: number;
-}
-
-export class KnowledgeProviderCredentialReferencesApi {
+export class KnowledgeTenantsCurrentApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -19,86 +12,19 @@ export class KnowledgeProviderCredentialReferencesApi {
   }
 
 
-/** List Provider credential references */
-  async list(params?: KnowledgeProviderCredentialReferencesListParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReferencePage> {
-    const query = buildQueryString([
-      { name: 'implementation_id', value: params?.implementationId, style: 'form', explode: true, allowReserved: false },
-      { name: 'rotation_state', value: params?.rotationState, style: 'form', explode: true, allowReserved: false },
-      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
-    ]);
-    return this.client.request<KnowledgeEngineProviderCredentialReferencePage>(appendQueryString(backendApiPath(`/knowledge/provider_credential_references`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
-  }
-
-/** Create a Provider credential reference */
-  async create(body: CreateKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReference> {
-    return this.client.request<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-
-/** Retrieve a Provider credential reference */
-  async retrieve(credentialReferenceId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReference> {
-    return this.client.request<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
-  }
-
-/** Rotate a Provider credential reference */
-  async rotate(credentialReferenceId: string, body: RotateKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
-    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/rotate`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
-  }
-
-/** Revoke a Provider credential reference */
-  async revoke(credentialReferenceId: string, body: RevokeKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
-    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/revoke`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
+/** Retrieve current tenant knowledgebase status */
+  async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeTenantStatus> {
+    return this.client.request<KnowledgeTenantStatus>(backendApiPath(`/knowledge/tenants/current`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
-export class KnowledgeComplianceAuditEventsAnonymizeActorApi {
+export class KnowledgeTenantsApi {
   private client: HttpClient;
+  public readonly current: KnowledgeTenantsCurrentApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-  }
-
-
-/** Anonymize audit events for a subject */
-  async create(body: AnonymizeKnowledgeAuditSubjectRequest, requestOptions?: ApiRequestOptions): Promise<AnonymizeKnowledgeAuditSubjectResult> {
-    return this.client.request<AnonymizeKnowledgeAuditSubjectResult>(backendApiPath(`/knowledge/compliance/audit_events/anonymize_actor`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-}
-
-export class KnowledgeComplianceAuditEventsExportApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Export knowledge audit events for a subject */
-  async create(body: ExportKnowledgeAuditEventsRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAuditEventExport> {
-    return this.client.request<KnowledgeAuditEventExport>(backendApiPath(`/knowledge/compliance/audit_events/export`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-}
-
-export class KnowledgeComplianceAuditEventsApi {
-  private client: HttpClient;
-  public readonly export: KnowledgeComplianceAuditEventsExportApi;
-  public readonly anonymizeActor: KnowledgeComplianceAuditEventsAnonymizeActorApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.export = new KnowledgeComplianceAuditEventsExportApi(client);
-    this.anonymizeActor = new KnowledgeComplianceAuditEventsAnonymizeActorApi(client);
-  }
-
-}
-
-export class KnowledgeComplianceApi {
-  private client: HttpClient;
-  public readonly auditEvents: KnowledgeComplianceAuditEventsApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.auditEvents = new KnowledgeComplianceAuditEventsApi(client);
+    this.current = new KnowledgeTenantsCurrentApi(client);
   }
 
 }
@@ -182,11 +108,6 @@ export class KnowledgeSpacesProviderBindingsApi {
     return this.client.request<KnowledgeEngineProviderBinding>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
-/** Test a Provider binding */
-  async test(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
-    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/test`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
-  }
-
 /** Activate a Provider binding */
   async activate(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
     return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/activate`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
@@ -195,6 +116,11 @@ export class KnowledgeSpacesProviderBindingsApi {
 /** Disable a Provider binding */
   async disable(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
     return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/disable`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
+  }
+
+/** Test a Provider binding */
+  async test(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
+    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/test`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 }
 
@@ -250,32 +176,12 @@ export class KnowledgeSpacesApi {
   }
 }
 
-export class KnowledgeTenantsCurrentApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Retrieve current tenant knowledgebase status */
-  async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeTenantStatus> {
-    return this.client.request<KnowledgeTenantStatus>(backendApiPath(`/knowledge/tenants/current`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
-  }
+export interface KnowledgeSourcesListParams {
+  cursor?: string;
+  pageSize?: number;
 }
 
-export class KnowledgeTenantsApi {
-  private client: HttpClient;
-  public readonly current: KnowledgeTenantsCurrentApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.current = new KnowledgeTenantsCurrentApi(client);
-  }
-
-}
-
-export class KnowledgeProviderHealthApi {
+export class KnowledgeSourcesApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -283,9 +189,18 @@ export class KnowledgeProviderHealthApi {
   }
 
 
-/** Retrieve provider health status */
-  async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeProviderHealth> {
-    return this.client.request<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+/** List knowledge sources */
+  async list(params?: KnowledgeSourcesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeSource[]; pageInfo: PageInfo; }> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.request<{ items: KnowledgeSource[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/sources`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+  }
+
+/** Create a knowledge source */
+  async create(body: CreateKnowledgeSourceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSource> {
+    return this.client.request<KnowledgeSource>(backendApiPath(`/knowledge/sources`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -341,12 +256,28 @@ export class KnowledgeRetrievalProfilesApi {
   }
 }
 
-export interface KnowledgeIndexesListParams {
+export class KnowledgeProviderHealthApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve provider health status */
+  async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeProviderHealth> {
+    return this.client.request<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export interface KnowledgeProviderCredentialReferencesListParams {
+  implementationId?: string;
+  rotationState?: KnowledgeEngineProviderCredentialRotationState;
   cursor?: string;
   pageSize?: number;
 }
 
-export class KnowledgeIndexesApi {
+export class KnowledgeProviderCredentialReferencesApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -354,32 +285,39 @@ export class KnowledgeIndexesApi {
   }
 
 
-/** Create a knowledge index */
-  async create(body: KnowledgeIndexRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeIndex> {
-    return this.client.request<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-
-/** List knowledge indexes */
-  async list(params?: KnowledgeIndexesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeIndex[]; pageInfo: PageInfo; }> {
+/** List Provider credential references */
+  async list(params?: KnowledgeProviderCredentialReferencesListParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReferencePage> {
     const query = buildQueryString([
+      { name: 'implementation_id', value: params?.implementationId, style: 'form', explode: true, allowReserved: false },
+      { name: 'rotation_state', value: params?.rotationState, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeIndex[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/indexes`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+    return this.client.request<KnowledgeEngineProviderCredentialReferencePage>(appendQueryString(backendApiPath(`/knowledge/provider_credential_references`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
-/** Retrieve a knowledge index */
-  async retrieve(indexId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeIndex> {
-    return this.client.request<KnowledgeIndex>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+/** Create a Provider credential reference */
+  async create(body: CreateKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReference> {
+    return this.client.request<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
-/** Rebuild a knowledge index */
-  async rebuild(indexId: string, body: OkfBundleIndexRebuildRequest, requestOptions?: ApiRequestOptions): Promise<OkfIndexDocument> {
-    return this.client.request<OkfIndexDocument>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}/rebuild`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+/** Retrieve a Provider credential reference */
+  async retrieve(credentialReferenceId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeEngineProviderCredentialReference> {
+    return this.client.request<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+
+/** Revoke a Provider credential reference */
+  async revoke(credentialReferenceId: string, body: RevokeKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
+    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/revoke`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
+  }
+
+/** Rotate a Provider credential reference */
+  async rotate(credentialReferenceId: string, body: RotateKnowledgeEngineProviderCredentialReferenceRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
+    return this.client.request<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/rotate`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 }
 
-export class KnowledgeOkfEvalRunsApi {
+export class KnowledgeOkfProfileApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -387,23 +325,14 @@ export class KnowledgeOkfEvalRunsApi {
   }
 
 
-/** Create an OKF eval run */
-  async create(body: OkfQualityRunRequest, requestOptions?: ApiRequestOptions): Promise<OkfQualityRun> {
-    return this.client.request<OkfQualityRun>(backendApiPath(`/knowledge/okf/eval_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-}
-
-export class KnowledgeOkfLintRunsApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
+/** Create an OKF profile */
+  async create(body: KnowledgeOkfProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
+    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
-
-/** Create an OKF lint run */
-  async create(body: OkfQualityRunRequest, requestOptions?: ApiRequestOptions): Promise<OkfQualityRun> {
-    return this.client.request<OkfQualityRun>(backendApiPath(`/knowledge/okf/lint_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+/** Update an OKF profile */
+  async update(profileId: number, body: KnowledgeOkfProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
+    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -432,7 +361,7 @@ export class KnowledgeOkfLogApi {
 
 }
 
-export class KnowledgeOkfBundleImportApi {
+export class KnowledgeOkfLintRunsApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -440,18 +369,13 @@ export class KnowledgeOkfBundleImportApi {
   }
 
 
-/** Import an OKF bundle from drive staging */
-  async create(body: OkfBundleImportRequest, requestOptions?: ApiRequestOptions): Promise<OkfBundleImportResult> {
-    return this.client.request<OkfBundleImportResult>(backendApiPath(`/knowledge/okf/imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+/** Create an OKF lint run */
+  async create(body: OkfQualityRunRequest, requestOptions?: ApiRequestOptions): Promise<OkfQualityRun> {
+    return this.client.request<OkfQualityRun>(backendApiPath(`/knowledge/okf/lint_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
-export interface KnowledgeOkfBundleFilesListParams {
-  cursor?: string;
-  pageSize?: number;
-}
-
-export class KnowledgeOkfBundleFilesApi {
+export class KnowledgeOkfEvalRunsApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -459,82 +383,9 @@ export class KnowledgeOkfBundleFilesApi {
   }
 
 
-/** List OKF bundle files */
-  async list(params?: KnowledgeOkfBundleFilesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeOkfBundleFile[]; pageInfo: PageInfo; }> {
-    const query = buildQueryString([
-      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
-    ]);
-    return this.client.request<{ items: KnowledgeOkfBundleFile[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/okf/bundle/files`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
-  }
-}
-
-export class KnowledgeOkfBundleExportApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Create an OKF bundle export */
-  async create(body: OkfBundleExportRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-
-/** Retrieve an OKF bundle export */
-  async retrieve(exportId: number, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
-  }
-}
-
-export class KnowledgeOkfBundleIndexApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Rebuild the OKF bundle index */
-  async rebuild(body: OkfBundleIndexRebuildRequest, requestOptions?: ApiRequestOptions): Promise<OkfIndexDocument> {
-    return this.client.request<OkfIndexDocument>(backendApiPath(`/knowledge/okf/index/rebuild`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-}
-
-export class KnowledgeOkfBundleApi {
-  private client: HttpClient;
-  public readonly index: KnowledgeOkfBundleIndexApi;
-  public readonly export: KnowledgeOkfBundleExportApi;
-  public readonly files: KnowledgeOkfBundleFilesApi;
-  public readonly import: KnowledgeOkfBundleImportApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.index = new KnowledgeOkfBundleIndexApi(client);
-    this.export = new KnowledgeOkfBundleExportApi(client);
-    this.files = new KnowledgeOkfBundleFilesApi(client);
-    this.import = new KnowledgeOkfBundleImportApi(client);
-  }
-
-}
-
-export class KnowledgeOkfProfileApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Create an OKF profile */
-  async create(body: KnowledgeOkfProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
-  }
-
-/** Update an OKF profile */
-  async update(profileId: number, body: KnowledgeOkfProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+/** Create an OKF eval run */
+  async create(body: OkfQualityRunRequest, requestOptions?: ApiRequestOptions): Promise<OkfQualityRun> {
+    return this.client.request<OkfQualityRun>(backendApiPath(`/knowledge/okf/eval_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -549,6 +400,20 @@ export class KnowledgeOkfConceptsApi {
 /** Publish an OKF concept */
   async publish(conceptId: number, body: OkfConceptPublishRequest, requestOptions?: ApiRequestOptions): Promise<OkfConceptSummary> {
     return this.client.request<OkfConceptSummary>(backendApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/publish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class KnowledgeOkfCompileJobsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Create an OKF compile job */
+  async create(body: OkfCompileJobRequest, requestOptions?: ApiRequestOptions): Promise<IngestionJob> {
+    return this.client.request<IngestionJob>(backendApiPath(`/knowledge/okf/compile_jobs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -587,7 +452,7 @@ export class KnowledgeOkfCandidatesApi {
   }
 }
 
-export class KnowledgeOkfCompileJobsApi {
+export class KnowledgeOkfBundleIndexApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -595,43 +460,51 @@ export class KnowledgeOkfCompileJobsApi {
   }
 
 
-/** Create an OKF compile job */
-  async create(body: OkfCompileJobRequest, requestOptions?: ApiRequestOptions): Promise<IngestionJob> {
-    return this.client.request<IngestionJob>(backendApiPath(`/knowledge/okf/compile_jobs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+/** Rebuild the OKF bundle index */
+  async rebuild(body: OkfBundleIndexRebuildRequest, requestOptions?: ApiRequestOptions): Promise<OkfIndexDocument> {
+    return this.client.request<OkfIndexDocument>(backendApiPath(`/knowledge/okf/index/rebuild`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
-export class KnowledgeOkfApi {
+export class KnowledgeOkfBundleImportApi {
   private client: HttpClient;
-  public readonly compileJobs: KnowledgeOkfCompileJobsApi;
-  public readonly candidates: KnowledgeOkfCandidatesApi;
-  public readonly concepts: KnowledgeOkfConceptsApi;
-  public readonly profile: KnowledgeOkfProfileApi;
-  public readonly bundle: KnowledgeOkfBundleApi;
-  public readonly log: KnowledgeOkfLogApi;
-  public readonly lintRuns: KnowledgeOkfLintRunsApi;
-  public readonly evalRuns: KnowledgeOkfEvalRunsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-    this.compileJobs = new KnowledgeOkfCompileJobsApi(client);
-    this.candidates = new KnowledgeOkfCandidatesApi(client);
-    this.concepts = new KnowledgeOkfConceptsApi(client);
-    this.profile = new KnowledgeOkfProfileApi(client);
-    this.bundle = new KnowledgeOkfBundleApi(client);
-    this.log = new KnowledgeOkfLogApi(client);
-    this.lintRuns = new KnowledgeOkfLintRunsApi(client);
-    this.evalRuns = new KnowledgeOkfEvalRunsApi(client);
   }
 
+
+/** Import an OKF bundle from drive staging */
+  async create(body: OkfBundleImportRequest, requestOptions?: ApiRequestOptions): Promise<OkfBundleImportResult> {
+    return this.client.request<OkfBundleImportResult>(backendApiPath(`/knowledge/okf/imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
 }
 
-export interface KnowledgeSourcesListParams {
+export class KnowledgeOkfBundleExportApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Create an OKF bundle export */
+  async create(body: OkfBundleExportRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
+    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+
+/** Retrieve an OKF bundle export */
+  async retrieve(exportId: number, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
+    return this.client.request<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export interface KnowledgeOkfBundleFilesListParams {
   cursor?: string;
   pageSize?: number;
 }
 
-export class KnowledgeSourcesApi {
+export class KnowledgeOkfBundleFilesApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -639,46 +512,200 @@ export class KnowledgeSourcesApi {
   }
 
 
-/** List knowledge sources */
-  async list(params?: KnowledgeSourcesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeSource[]; pageInfo: PageInfo; }> {
+/** List OKF bundle files */
+  async list(params?: KnowledgeOkfBundleFilesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeOkfBundleFile[]; pageInfo: PageInfo; }> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeSource[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/sources`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+    return this.client.request<{ items: KnowledgeOkfBundleFile[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/okf/bundle/files`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+  }
+}
+
+export class KnowledgeOkfBundleApi {
+  private client: HttpClient;
+  public readonly files: KnowledgeOkfBundleFilesApi;
+  public readonly export: KnowledgeOkfBundleExportApi;
+  public readonly import: KnowledgeOkfBundleImportApi;
+  public readonly index: KnowledgeOkfBundleIndexApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.files = new KnowledgeOkfBundleFilesApi(client);
+    this.export = new KnowledgeOkfBundleExportApi(client);
+    this.import = new KnowledgeOkfBundleImportApi(client);
+    this.index = new KnowledgeOkfBundleIndexApi(client);
   }
 
-/** Create a knowledge source */
-  async create(body: CreateKnowledgeSourceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSource> {
-    return this.client.request<KnowledgeSource>(backendApiPath(`/knowledge/sources`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+}
+
+export class KnowledgeOkfApi {
+  private client: HttpClient;
+  public readonly bundle: KnowledgeOkfBundleApi;
+  public readonly candidates: KnowledgeOkfCandidatesApi;
+  public readonly compileJobs: KnowledgeOkfCompileJobsApi;
+  public readonly concepts: KnowledgeOkfConceptsApi;
+  public readonly evalRuns: KnowledgeOkfEvalRunsApi;
+  public readonly lintRuns: KnowledgeOkfLintRunsApi;
+  public readonly log: KnowledgeOkfLogApi;
+  public readonly profile: KnowledgeOkfProfileApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.bundle = new KnowledgeOkfBundleApi(client);
+    this.candidates = new KnowledgeOkfCandidatesApi(client);
+    this.compileJobs = new KnowledgeOkfCompileJobsApi(client);
+    this.concepts = new KnowledgeOkfConceptsApi(client);
+    this.evalRuns = new KnowledgeOkfEvalRunsApi(client);
+    this.lintRuns = new KnowledgeOkfLintRunsApi(client);
+    this.log = new KnowledgeOkfLogApi(client);
+    this.profile = new KnowledgeOkfProfileApi(client);
   }
+
+}
+
+export interface KnowledgeIndexesListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeIndexesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Create a knowledge index */
+  async create(body: KnowledgeIndexRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeIndex> {
+    return this.client.request<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+
+/** List knowledge indexes */
+  async list(params?: KnowledgeIndexesListParams, requestOptions?: ApiRequestOptions): Promise<{ items: KnowledgeIndex[]; pageInfo: PageInfo; }> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.request<{ items: KnowledgeIndex[]; pageInfo: PageInfo; }>(appendQueryString(backendApiPath(`/knowledge/indexes`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
+  }
+
+/** Retrieve a knowledge index */
+  async retrieve(indexId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeIndex> {
+    return this.client.request<KnowledgeIndex>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+
+/** Rebuild a knowledge index */
+  async rebuild(indexId: string, body: OkfBundleIndexRebuildRequest, requestOptions?: ApiRequestOptions): Promise<OkfIndexDocument> {
+    return this.client.request<OkfIndexDocument>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}/rebuild`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class KnowledgeGroupLaunchApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve the group knowledgebase launch capability state for the runtime deployment */
+  async capability(requestOptions?: ApiRequestOptions): Promise<GroupKnowledgebaseLaunchCapability> {
+    return this.client.request<GroupKnowledgebaseLaunchCapability>(backendApiPath(`/knowledge/group_launch_capability`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class KnowledgeGroupApi {
+  private client: HttpClient;
+  public readonly launch: KnowledgeGroupLaunchApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.launch = new KnowledgeGroupLaunchApi(client);
+  }
+
+}
+
+export class KnowledgeComplianceAuditEventsExportApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Export knowledge audit events for a subject */
+  async create(body: ExportKnowledgeAuditEventsRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAuditEventExport> {
+    return this.client.request<KnowledgeAuditEventExport>(backendApiPath(`/knowledge/compliance/audit_events/export`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class KnowledgeComplianceAuditEventsAnonymizeActorApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Anonymize audit events for a subject */
+  async create(body: AnonymizeKnowledgeAuditSubjectRequest, requestOptions?: ApiRequestOptions): Promise<AnonymizeKnowledgeAuditSubjectResult> {
+    return this.client.request<AnonymizeKnowledgeAuditSubjectResult>(backendApiPath(`/knowledge/compliance/audit_events/anonymize_actor`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
+  }
+}
+
+export class KnowledgeComplianceAuditEventsApi {
+  private client: HttpClient;
+  public readonly anonymizeActor: KnowledgeComplianceAuditEventsAnonymizeActorApi;
+  public readonly export: KnowledgeComplianceAuditEventsExportApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.anonymizeActor = new KnowledgeComplianceAuditEventsAnonymizeActorApi(client);
+    this.export = new KnowledgeComplianceAuditEventsExportApi(client);
+  }
+
+}
+
+export class KnowledgeComplianceApi {
+  private client: HttpClient;
+  public readonly auditEvents: KnowledgeComplianceAuditEventsApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.auditEvents = new KnowledgeComplianceAuditEventsApi(client);
+  }
+
 }
 
 export class KnowledgeApi {
   private client: HttpClient;
-  public readonly sources: KnowledgeSourcesApi;
-  public readonly okf: KnowledgeOkfApi;
+  public readonly compliance: KnowledgeComplianceApi;
+  public readonly group: KnowledgeGroupApi;
   public readonly indexes: KnowledgeIndexesApi;
+  public readonly okf: KnowledgeOkfApi;
+  public readonly providerCredentialReferences: KnowledgeProviderCredentialReferencesApi;
+  public readonly providerHealth: KnowledgeProviderHealthApi;
   public readonly retrievalProfiles: KnowledgeRetrievalProfilesApi;
   public readonly retrievalTraces: KnowledgeRetrievalTracesApi;
-  public readonly providerHealth: KnowledgeProviderHealthApi;
-  public readonly tenants: KnowledgeTenantsApi;
+  public readonly sources: KnowledgeSourcesApi;
   public readonly spaces: KnowledgeSpacesApi;
-  public readonly compliance: KnowledgeComplianceApi;
-  public readonly providerCredentialReferences: KnowledgeProviderCredentialReferencesApi;
+  public readonly tenants: KnowledgeTenantsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-    this.sources = new KnowledgeSourcesApi(client);
-    this.okf = new KnowledgeOkfApi(client);
+    this.compliance = new KnowledgeComplianceApi(client);
+    this.group = new KnowledgeGroupApi(client);
     this.indexes = new KnowledgeIndexesApi(client);
+    this.okf = new KnowledgeOkfApi(client);
+    this.providerCredentialReferences = new KnowledgeProviderCredentialReferencesApi(client);
+    this.providerHealth = new KnowledgeProviderHealthApi(client);
     this.retrievalProfiles = new KnowledgeRetrievalProfilesApi(client);
     this.retrievalTraces = new KnowledgeRetrievalTracesApi(client);
-    this.providerHealth = new KnowledgeProviderHealthApi(client);
-    this.tenants = new KnowledgeTenantsApi(client);
+    this.sources = new KnowledgeSourcesApi(client);
     this.spaces = new KnowledgeSpacesApi(client);
-    this.compliance = new KnowledgeComplianceApi(client);
-    this.providerCredentialReferences = new KnowledgeProviderCredentialReferencesApi(client);
+    this.tenants = new KnowledgeTenantsApi(client);
   }
 
 }

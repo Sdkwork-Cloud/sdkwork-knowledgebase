@@ -71,12 +71,13 @@ tower = { version = "0.5", features = ["util"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
+url = "2"
 wiremock = "0.6"
 zeroize = "1"
 
 sdkwork-knowledgebase-contract = { path = "crates/sdkwork-knowledgebase-contract" }
 sdkwork-knowledgebase-agent-provider = { path = "crates/sdkwork-knowledgebase-agent-provider" }
-clawrouter-open-sdk = { path = "../sdkwork-clawrouter/sdks/clawrouter-open-sdk/clawrouter-open-sdk-rust/generated/server-openapi" }
+cloudrouter-open-sdk = { path = "../sdkwork-cloudrouter/sdks/cloudrouter-open-sdk/cloudrouter-open-sdk-rust/generated/server-openapi", package = "cloudrouter-open-sdk" }
 sdkwork-agent-kernel = { path = "../sdkwork-kernel/sdkwork-agent-kernel" }
 sdkwork-agent-provider-rig = { path = "../sdkwork-kernel/agent-providers/crates/sdkwork-agent-provider-rig" }
 sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-core" }

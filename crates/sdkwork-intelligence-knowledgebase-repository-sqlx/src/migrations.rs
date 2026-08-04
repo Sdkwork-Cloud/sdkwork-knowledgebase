@@ -110,6 +110,9 @@ pub const SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION: &str =
 pub const SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION: &str =
     include_str!("../migrations/sqlite/V202607310003__embedding_scope_triggers.sql");
 
+pub const SQLITE_OUTBOX_RETRY_BACKOFF_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202608040001__outbox_retry_backoff.sql");
+
 pub const SQLITE_PROVIDER_BINDING_MIGRATION: &str = include_str!(
     "../../../tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql"
 );
@@ -144,6 +147,7 @@ pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CORE_ORGANIZATION_SCOPE_MIGRATION,
     SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION,
     SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION,
+    SQLITE_OUTBOX_RETRY_BACKOFF_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[

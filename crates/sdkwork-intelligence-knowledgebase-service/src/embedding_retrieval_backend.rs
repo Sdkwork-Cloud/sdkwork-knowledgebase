@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalMethod;
 use std::sync::Arc;
 
@@ -12,22 +12,22 @@ use crate::ports::knowledge_retrieval_backend::{
 pub type SharedKnowledgeRetrievalBackend = Arc<dyn KnowledgeRetrievalBackend + Send + Sync>;
 
 #[derive(Clone)]
-pub struct ClawRouterEmbeddingRetrievalBackend {
+pub struct CloudRouterEmbeddingRetrievalBackend {
     inner: SharedKnowledgeRetrievalBackend,
-    embedder: ClawRouterEmbeddingClient,
+    embedder: CloudRouterEmbeddingClient,
 }
 
-impl ClawRouterEmbeddingRetrievalBackend {
+impl CloudRouterEmbeddingRetrievalBackend {
     pub fn new(
         inner: SharedKnowledgeRetrievalBackend,
-        embedder: ClawRouterEmbeddingClient,
+        embedder: CloudRouterEmbeddingClient,
     ) -> Self {
         Self { inner, embedder }
     }
 }
 
 #[async_trait]
-impl KnowledgeRetrievalBackend for ClawRouterEmbeddingRetrievalBackend {
+impl KnowledgeRetrievalBackend for CloudRouterEmbeddingRetrievalBackend {
     async fn search_chunks(
         &self,
         mut request: KnowledgeChunkSearchRequest,

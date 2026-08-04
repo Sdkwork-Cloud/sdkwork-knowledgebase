@@ -18,7 +18,7 @@ const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
 const EMBEDDING_UPSERT_BATCH_SIZE: usize = 32;
 const MAX_EMBEDDING_DIMENSION: usize = 16_384;
-const DEFAULT_PROVIDER_ID: &str = "provider.model.sdkwork-claw-router";
+const DEFAULT_PROVIDER_ID: &str = "provider.model.sdkwork-cloudrouter-router";
 const DEFAULT_EMBEDDING_MODEL: &str = "openai/text-embedding-3-small";
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

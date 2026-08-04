@@ -203,7 +203,7 @@ async fn sqlite_drive_import_quota_rolls_back_entire_metadata_chain() {
         "kb_ingestion_job",
     ] {
         let query = format!("SELECT COUNT(*) FROM {table} WHERE tenant_id = $1");
-        let count: i64 = sqlx::query_scalar(&query)
+        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id as i64)
             .fetch_one(&pool)
             .await
@@ -490,6 +490,7 @@ async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
                     claim_owner: format!("worker-{worker_number}"),
                     lease_duration: Duration::minutes(5),
                     limit: 20,
+                    max_attempts: 5,
                 })
                 .await
                 .unwrap()
@@ -520,6 +521,7 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
             claim_owner: "worker-a".to_string(),
             lease_duration: Duration::minutes(5),
             limit: 1,
+            max_attempts: 5,
         })
         .await
         .unwrap()
@@ -547,6 +549,7 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
             claim_owner: "worker-b".to_string(),
             lease_duration: Duration::minutes(5),
             limit: 1,
+            max_attempts: 5,
         })
         .await
         .unwrap()
@@ -1130,6 +1133,7 @@ async fn sqlite_ingestion_job_store_completes_chunks_job_and_outbox_atomically()
             claim_owner: "completion-worker".to_string(),
             lease_duration: Duration::minutes(5),
             limit: 1,
+            max_attempts: 5,
         })
         .await
         .unwrap()

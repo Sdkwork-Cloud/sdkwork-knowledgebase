@@ -1,4 +1,4 @@
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::rag::KnowledgeIndexRequest;
 use sdkwork_utils_rust::is_blank;
 use std::time::Duration;
@@ -12,13 +12,13 @@ use crate::ports::knowledge_embedding_store::{
 
 pub struct KnowledgeEmbeddingIndexService<'a> {
     embeddings: &'a dyn KnowledgeEmbeddingStore,
-    embedder: ClawRouterEmbeddingClient,
+    embedder: CloudRouterEmbeddingClient,
 }
 
 impl<'a> KnowledgeEmbeddingIndexService<'a> {
     pub fn new(
         embeddings: &'a dyn KnowledgeEmbeddingStore,
-        embedder: ClawRouterEmbeddingClient,
+        embedder: CloudRouterEmbeddingClient,
     ) -> Self {
         Self {
             embeddings,

@@ -12,7 +12,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore,
+    KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
@@ -266,23 +267,32 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
         Ok(vec![])
     }
 
-    async fn list_orphan_concept_ids(
+    async fn list_inbound_link_targets_page(
         &self,
         _space_id: u64,
-        published_concept_ids: &[String],
-    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(published_concept_ids
-            .iter()
-            .filter(|concept_id| *concept_id == "entities/orphan")
-            .cloned()
-            .collect())
+        _after_concept_id: Option<&str>,
+        _limit: u32,
+    ) -> Result<InboundLinkTargetsPage, KnowledgeOkfConceptLinkStoreError> {
+        // The bundle linter fixture marks `entities/orphan` as orphaned by
+        // providing no inbound target at all.
+        Ok(InboundLinkTargetsPage {
+            targets: Vec::new(),
+            next_cursor: None,
+            has_more: false,
+        })
     }
 
-    async fn list_active_link_edges(
+    async fn list_active_link_edges_page(
         &self,
         _space_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(vec![])
+        _after: Option<LinkEdgeCursor>,
+        _limit: u32,
+    ) -> Result<LinkEdgePage, KnowledgeOkfConceptLinkStoreError> {
+        Ok(LinkEdgePage {
+            edges: Vec::new(),
+            next_cursor: None,
+            has_more: false,
+        })
     }
 }
 

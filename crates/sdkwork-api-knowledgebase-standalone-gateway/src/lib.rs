@@ -1,6 +1,7 @@
 mod config;
 mod error;
 mod group_launch_ticket_consumer_config;
+pub mod redis_runtime;
 mod server;
 
 use axum::Router;
@@ -12,6 +13,7 @@ pub use error::{GatewayRuntimeError, GatewayServeError, GatewaySignalError};
 pub use group_launch_ticket_consumer_config::{
     resolve_group_launch_ticket_consumer_from_env, GroupLaunchTicketConsumerConfigError,
 };
+pub use redis_runtime::RedisRuntimeConfig;
 
 use config::GatewayServerConfig;
 use server::{run_with_runtime_cleanup, serve_router_with_config};

@@ -31,6 +31,7 @@ async fn lock_external_adapter_env() -> MutexGuard<'static, ()> {
     EXTERNAL_ADAPTER_ENV_TEST_LOCK.lock().await
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_lists_documents() {
     let runtime = test_runtime().await;
@@ -61,6 +62,7 @@ async fn hosted_app_router_lists_documents() {
     assert!(body["items"].is_array());
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_creates_manual_document_without_client_source_id() {
     let runtime = test_runtime().await;
@@ -101,6 +103,7 @@ async fn hosted_app_router_creates_manual_document_without_client_source_id() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_router_serves_provider_health() {
     let _env_guard = lock_external_adapter_env().await;
@@ -149,6 +152,7 @@ async fn hosted_backend_router_serves_provider_health() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe() {
     let _env_guard = lock_external_adapter_env().await;
@@ -396,6 +400,7 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
     assert_eq!(revoke_command["status"], "revoked");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_provider_migration_is_scoped_recoverable_and_reversible() {
     let runtime = test_runtime().await;
@@ -584,6 +589,7 @@ async fn hosted_provider_migration_is_scoped_recoverable_and_reversible() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -657,6 +663,7 @@ async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_router_lists_sources() {
     let runtime = test_runtime().await;
@@ -678,6 +685,7 @@ async fn hosted_backend_router_lists_sources() {
     assert!(body["items"].is_array());
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_upserts_okf_concept() {
     let runtime = test_runtime().await;
@@ -727,6 +735,7 @@ async fn hosted_app_router_upserts_okf_concept() {
     assert_eq!(body["title"], "Users");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_lists_okf_concepts_for_space() {
     let runtime = test_runtime().await;
@@ -762,6 +771,7 @@ async fn hosted_app_lists_okf_concepts_for_space() {
         .any(|item| item["conceptId"] == "tables/users"));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_pages_okf_concepts_and_revisions_with_standard_list_envelopes() {
     let runtime = test_runtime().await;
@@ -939,6 +949,7 @@ async fn hosted_app_pages_okf_concepts_and_revisions_with_standard_list_envelope
     assert_invalid_parameter_problem(replay).await;
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_okf_lists_reject_invalid_and_noncanonical_pagination_queries() {
     let runtime = test_runtime().await;
@@ -996,6 +1007,7 @@ async fn hosted_app_okf_lists_reject_invalid_and_noncanonical_pagination_queries
     }
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_lists_okf_candidates_for_space() {
     let runtime = test_runtime().await;
@@ -1021,6 +1033,7 @@ async fn hosted_backend_lists_okf_candidates_for_space() {
     assert!(body["items"].is_array());
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_registers_okf_profile_and_rebuilds_index() {
     let runtime = test_runtime().await;
@@ -1071,6 +1084,7 @@ async fn hosted_backend_registers_okf_profile_and_rebuilds_index() {
         .contains("/entities/index.md"));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_imports_staged_export_bundle() {
     let runtime = test_runtime().await;
@@ -1120,6 +1134,7 @@ async fn hosted_backend_imports_staged_export_bundle() {
     assert!(import_body["importedConceptCount"].as_u64().unwrap_or(0) >= 1);
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_export_stages_bundle_for_import_roundtrip() {
     let runtime = test_runtime().await;
@@ -1198,6 +1213,7 @@ async fn hosted_app_export_stages_bundle_for_import_roundtrip() {
         .any(|item| item["conceptId"] == "entities/widget"));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_export_stages_bundle_for_import() {
     let runtime = test_runtime().await;
@@ -1235,6 +1251,7 @@ async fn hosted_backend_export_stages_bundle_for_import() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_runs_okf_lint_job_for_space() {
     let runtime = test_runtime().await;
@@ -1266,6 +1283,7 @@ async fn hosted_backend_runs_okf_lint_job_for_space() {
     assert_eq!(body["state"], "succeeded");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_runs_okf_compile_job_for_space() {
     let runtime = test_runtime().await;
@@ -1297,6 +1315,7 @@ async fn hosted_backend_runs_okf_compile_job_for_space() {
     assert_eq!(body["state"], "succeeded");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_approves_okf_candidate() {
     let runtime = test_runtime().await;
@@ -1354,6 +1373,7 @@ async fn hosted_backend_approves_okf_candidate() {
     assert_eq!(approve_body["state"], "published");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_rejects_okf_candidate() {
     let runtime = test_runtime().await;
@@ -1409,6 +1429,7 @@ async fn hosted_backend_rejects_okf_candidate() {
     assert_eq!(reject_body["state"], "rejected");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_dify_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1465,6 +1486,7 @@ async fn hosted_backend_resolves_unconfigured_dify_without_startup_credential_ac
     assert_eq!(implementation_id, "engine.knowledge.external.dify");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_ragflow_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1521,6 +1543,7 @@ async fn hosted_backend_resolves_unconfigured_ragflow_without_startup_credential
     assert_eq!(implementation_id, "engine.knowledge.external.ragflow");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_onyx_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1574,6 +1597,7 @@ async fn hosted_backend_resolves_unconfigured_onyx_without_startup_credential_ac
     assert_eq!(implementation_id, "engine.knowledge.external.onyx");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_anythingllm_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1627,6 +1651,7 @@ async fn hosted_backend_resolves_unconfigured_anythingllm_without_startup_creden
     assert_eq!(implementation_id, "engine.knowledge.external.anythingllm");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_open_webui_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1680,6 +1705,7 @@ async fn hosted_backend_resolves_unconfigured_open_webui_without_startup_credent
     assert_eq!(implementation_id, "engine.knowledge.external.open-webui");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_flowise_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1733,6 +1759,7 @@ async fn hosted_backend_resolves_unconfigured_flowise_without_startup_credential
     assert_eq!(implementation_id, "engine.knowledge.external.flowise");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_chroma_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1786,6 +1813,7 @@ async fn hosted_backend_resolves_unconfigured_chroma_without_startup_credential_
     assert_eq!(implementation_id, "engine.knowledge.external.chroma");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_qdrant_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1839,6 +1867,7 @@ async fn hosted_backend_resolves_unconfigured_qdrant_without_startup_credential_
     assert_eq!(implementation_id, "engine.knowledge.external.qdrant");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_weaviate_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1892,6 +1921,7 @@ async fn hosted_backend_resolves_unconfigured_weaviate_without_startup_credentia
     assert_eq!(implementation_id, "engine.knowledge.external.weaviate");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_haystack_without_startup_credential_access() {
     let runtime = test_runtime().await;
@@ -1945,6 +1975,7 @@ async fn hosted_backend_resolves_unconfigured_haystack_without_startup_credentia
     assert_eq!(implementation_id, "engine.knowledge.external.haystack");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -2074,6 +2105,7 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
     );
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -2216,6 +2248,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         .is_some_and(|answer| answer.contains("Hosted External Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_dify_citation_document() {
     let _env_guard = lock_external_adapter_env().await;
@@ -2384,6 +2417,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
     assert_eq!(document.title, "Hosted Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
     let _env_guard = lock_external_adapter_env().await;
@@ -2554,6 +2588,7 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
     assert_eq!(document.title, "Hosted RAGFlow Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_open_webui_citation_document() {
     const SNIPPET: &str = "hosted openwebui read snippet";
@@ -2714,6 +2749,7 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
     assert_eq!(document.title, "Hosted Open WebUI Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_flowise_citation_document() {
     const SNIPPET: &str = "hosted flowise read snippet";
@@ -2876,6 +2912,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
     assert_eq!(document.title, "Hosted Flowise Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
     const SNIPPET: &str = "hosted qdrant read snippet";
@@ -3056,6 +3093,7 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
     assert_eq!(document.title, "Hosted Qdrant Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3200,6 +3238,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         .is_some_and(|answer| answer.contains("Hosted RAGFlow Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3340,6 +3379,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         .is_some_and(|answer| answer.contains("Hosted Onyx Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3485,6 +3525,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         .is_some_and(|answer| answer.contains("Hosted AnythingLLM Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3627,6 +3668,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         .is_some_and(|answer| answer.contains("Hosted Open WebUI Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3771,6 +3813,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         .is_some_and(|answer| answer.contains("Hosted Flowise Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -3911,6 +3954,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
         .is_some_and(|answer| answer.contains("Hosted Chroma Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_chroma_citation_document() {
     const SNIPPET: &str = "hosted chroma read snippet";
@@ -4079,6 +4123,7 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
     assert_eq!(document.title, "Hosted Chroma Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -4228,6 +4273,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
         .is_some_and(|answer| answer.contains("Hosted Qdrant Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -4371,6 +4417,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
         .is_some_and(|answer| answer.contains("Hosted Weaviate Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
     const SNIPPET: &str = "hosted weaviate read snippet";
@@ -4541,6 +4588,7 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
     assert_eq!(document.title, "Hosted Weaviate Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() {
     let _env_guard = lock_external_adapter_env().await;
@@ -4683,6 +4731,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
         .is_some_and(|answer| answer.contains("Hosted Haystack Doc")));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_haystack_citation_document() {
     const SNIPPET: &str = "hosted haystack read snippet";
@@ -4837,6 +4886,7 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
     assert_eq!(document.title, "Hosted Haystack Read Doc");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
     let runtime = test_runtime().await;
@@ -4958,6 +5008,7 @@ async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
     assert_eq!(document.title, "Agent Target");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_runs_okf_lint_job_for_space() {
     let runtime = test_runtime().await;
@@ -5043,6 +5094,7 @@ async fn upsert_okf_concept(
     }
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_open_router_lists_documents() {
     let runtime = test_runtime().await;

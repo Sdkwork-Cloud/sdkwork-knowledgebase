@@ -370,7 +370,18 @@ async fn open_router_web_framework_rejects_unauthenticated_requests() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    // Without an IAM database the resolver cannot look up credentials and the
+    // framework fails closed with 503 dependency-unavailable; with a database
+    // the same request is rejected with 401. Either way the unauthenticated
+    // request must never reach the handler.
+    assert!(
+        matches!(
+            response.status(),
+            StatusCode::UNAUTHORIZED | StatusCode::SERVICE_UNAVAILABLE
+        ),
+        "unauthenticated open-api request must be rejected, got {}",
+        response.status()
+    );
 }
 
 #[tokio::test]

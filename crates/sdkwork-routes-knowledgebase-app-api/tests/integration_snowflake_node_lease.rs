@@ -2,6 +2,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::default_knowledge_id_gen
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn runtime_uses_a_healthy_database_backed_snowflake_node_lease() {
     let work_dir = std::env::current_dir().expect("current directory");

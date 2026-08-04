@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_market_list_bootstraps_from_created_space() {
     let runtime = test_runtime().await;
@@ -45,6 +46,7 @@ async fn integration_market_list_bootstraps_from_created_space() {
     let _ = space_id;
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_market_subscription_round_trip() {
     let runtime = test_runtime().await;
@@ -131,6 +133,7 @@ async fn integration_market_subscription_round_trip() {
     assert_eq!(response_body_string(unsubscribe_response).await, "");
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_image_generation_fails_closed_without_a_media_provider() {
     let runtime = test_runtime().await;
@@ -164,6 +167,7 @@ async fn integration_image_generation_fails_closed_without_a_media_provider() {
     assert!(!body.to_string().contains("unsplash.com"));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_transcription_fails_closed_without_derived_text_or_provider() {
     let runtime = test_runtime().await;
@@ -197,6 +201,7 @@ async fn integration_transcription_fails_closed_without_derived_text_or_provider
     assert!(!body.to_string().contains("audio.mp3"));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_git_sync_rejects_invalid_request() {
     let runtime = test_runtime().await;

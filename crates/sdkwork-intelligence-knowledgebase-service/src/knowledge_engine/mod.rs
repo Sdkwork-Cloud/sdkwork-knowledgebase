@@ -40,7 +40,7 @@ use crate::ports::knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore;
 use crate::ports::knowledge_source_store::KnowledgeSourceStore;
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
 use crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStore;
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError;
 
 pub struct DefaultKnowledgeEngineRegistry {
@@ -194,7 +194,7 @@ impl DefaultKnowledgeEngineRegistry {
         &self,
         index_id: u64,
         space_id: u64,
-        embedder: ClawRouterEmbeddingClient,
+        embedder: CloudRouterEmbeddingClient,
     ) -> Result<usize, KnowledgeEngineError> {
         let Some(rebuild) = self.rag_native.index_rebuild_deps() else {
             return Err(KnowledgeEngineError::Unsupported(
@@ -258,7 +258,7 @@ pub struct KnowledgeEngineRuntimeDeps {
     pub retrieval_traces: Arc<dyn KnowledgeRetrievalTraceStore>,
     pub rag_index_store: Option<Arc<dyn KnowledgeIndexStore>>,
     pub rag_embedding_store: Option<Arc<dyn KnowledgeEmbeddingStore>>,
-    pub rag_embedder: Option<ClawRouterEmbeddingClient>,
+    pub rag_embedder: Option<CloudRouterEmbeddingClient>,
     pub external_engines: Vec<Arc<dyn KnowledgeEngine>>,
 }
 

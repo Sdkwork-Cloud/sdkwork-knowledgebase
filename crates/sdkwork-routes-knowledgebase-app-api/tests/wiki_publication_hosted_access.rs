@@ -19,6 +19,7 @@ const WRITER_ID: u64 = 43;
 const READER_ID: u64 = 44;
 const MISSING_SOURCE_FILE_UUID: &str = "11111111-1111-4111-8111-111111111999";
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_wiki_routes_enforce_reader_writer_and_owner_roles() {
     let runtime = test_runtime().await;

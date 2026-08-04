@@ -2206,7 +2206,57 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let now_text = format_job_timestamp(now)?;
         let lease_expires_at_text = format_job_timestamp(lease_expires_at)?;
         let limit = i64::from(request.limit.min(200));
+        let max_attempts = i64::from(request.max_attempts.max(1));
         let now_expr = self.timestamp_dialect.sql_timestamp_expr("$7");
+
+        // Jobs whose lease expired with a claimed attempt at/over the maximum
+        // are failed permanently instead of being reclaimed forever (crash or
+        // lease-loss loops must terminate).
+        let fail_exhausted_query = format!(
+            r#"
+            UPDATE kb_ingestion_job
+            SET state = $1,
+                claim_owner = NULL,
+                claim_token = NULL,
+                lease_expires_at = NULL,
+                error_detail = $2,
+                finished_at = {now_expr},
+                updated_at = {now_expr},
+                version = version + 1
+            WHERE tenant_id = $3
+              AND organization_id = $4
+              AND status = $5
+              AND job_type = $6
+              AND state = $7
+              AND lease_expires_at IS NOT NULL
+              AND lease_expires_at <= {now_expr}
+              AND attempt_count >= $8
+            "#,
+        );
+        let exhausted = sqlx::query(sqlx::AssertSqlSafe(fail_exhausted_query.as_str()))
+            .bind(ingestion_state_code(IngestionJobState::Failed))
+            .bind(format!(
+                "ingestion job exceeded the maximum of {max_attempts} claim attempts"
+            ))
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(ACTIVE_STATUS)
+            .bind(KnowledgeSourceType::DriveObject.as_str())
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind(&now_text)
+            .bind(max_attempts)
+            .execute(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?;
+        if exhausted.rows_affected() > 0 {
+            tracing::error!(
+                target: "sdkwork.knowledgebase.ingestion",
+                failed_jobs = exhausted.rows_affected(),
+                max_attempts,
+                "ingestion jobs exhausted their claim attempts and were failed permanently"
+            );
+        }
+
         let candidates_query = format!(
             r#"
             SELECT id
@@ -2215,6 +2265,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
               AND organization_id = $2
               AND status = $3
               AND job_type = $4
+              AND attempt_count < $9
               AND (
                   state = $5
                   OR (state = $6 AND lease_expires_at IS NOT NULL AND lease_expires_at <= {now_expr})
@@ -2232,6 +2283,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             .bind(ingestion_state_code(IngestionJobState::Running))
             .bind(&now_text)
             .bind(limit)
+            .bind(max_attempts)
             .fetch_all(&self.pool)
             .await
             .map_err(job_sqlx_error)?;
@@ -2256,6 +2308,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
               AND id = $8
               AND status = $9
               AND job_type = $10
+              AND attempt_count < $13
               AND (
                   state = $11
                   OR (
@@ -2286,6 +2339,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
                 .bind(KnowledgeSourceType::DriveObject.as_str())
                 .bind(ingestion_state_code(IngestionJobState::Queued))
                 .bind(ingestion_state_code(IngestionJobState::Running))
+                .bind(max_attempts)
                 .fetch_optional(&self.pool)
                 .await
                 .map_err(job_sqlx_error)?;

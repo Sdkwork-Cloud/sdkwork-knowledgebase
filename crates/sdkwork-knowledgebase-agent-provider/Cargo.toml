@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-clawrouter-open-sdk.workspace = true
+cloudrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
 sdkwork-agent-plugin-core.workspace = true
 sdkwork-agent-provider-rig.workspace = true

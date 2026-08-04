@@ -54,6 +54,7 @@ fn app_context(
     }
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_retrieve() {
     let _guard = tenant_isolation_test_lock().await;
@@ -78,6 +79,7 @@ async fn tenant_id_mismatch_rejects_space_retrieve() {
     assert_eq!(body["code"].as_i64(), Some(40303));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_creation() {
     let _guard = tenant_isolation_test_lock().await;
@@ -108,6 +110,7 @@ async fn tenant_id_mismatch_rejects_space_creation() {
     assert_eq!(body["code"].as_i64(), Some(40303));
 }
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn organization_id_mismatch_rejects_when_runtime_org_configured() {
     let _guard = tenant_isolation_test_lock().await;

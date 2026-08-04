@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use clawrouter_open_sdk::{
+use cloudrouter_open_sdk::{
     OpenAiAudioTranscriptionRequest, OpenAiFileReferenceInput, OpenAiImageGenerationRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
@@ -225,8 +225,8 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
 
 fn resolve_media_client(
     unavailable_code: &'static str,
-) -> ApiResult<clawrouter_open_sdk::SdkworkAiClient> {
-    sdkwork_knowledgebase_agent_provider::resolve_claw_router_client_from_env().map_err(|_| {
+) -> ApiResult<cloudrouter_open_sdk::SdkworkAiClient> {
+    sdkwork_knowledgebase_agent_provider::resolve_cloud_router_client_from_env().map_err(|_| {
         ApiError::new(
             axum::http::StatusCode::SERVICE_UNAVAILABLE,
             unavailable_code,
@@ -340,8 +340,8 @@ fn image_quality(style_mode: Option<&str>) -> ApiResult<Option<String>> {
     }
 }
 
-fn media_provider_error(code: &'static str, error: &clawrouter_open_sdk::SdkworkError) -> ApiError {
-    tracing::warn!(error = %error, "Claw Router media request failed");
+fn media_provider_error(code: &'static str, error: &cloudrouter_open_sdk::SdkworkError) -> ApiError {
+    tracing::warn!(error = %error, "Cloud Router media request failed");
     ApiError::new(
         axum::http::StatusCode::BAD_GATEWAY,
         code,

@@ -36,7 +36,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "25b60d9ced6ac47e75f4401c3b5a6352c29d07a7241fb152034968a8add8ddba"
+      "sha256": "fdc43786145a05b2f229e1629109ff4488e0db4055eddb340050a45211cecf75"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -48,7 +48,7 @@
     },
     {
       "path": "src/api/knowledge.rs",
-      "sha256": "60a27aaf7e69911b9b630a8cf02d668fffe43cc7511d6394bd29ec1312695651"
+      "sha256": "9ae6a19a080fc317f0a700e05a7f46ff31e4137cb4ebfcba282fbba3cd2dc0ba"
     },
     {
       "path": "src/api/mod.rs",
@@ -129,6 +129,14 @@
     {
       "path": "src/models/field_error.rs",
       "sha256": "c8b58fd0553f605102e3af28a94ab4618ff32cb9622ef8d427288aa766fa61d5"
+    },
+    {
+      "path": "src/models/group_knowledgebase_launch_capability.rs",
+      "sha256": "8275704400f74de3c152e8479a8777ff9c54c380dd8b4e451fcb87e03a351bde"
+    },
+    {
+      "path": "src/models/group_launch_capability_response.rs",
+      "sha256": "8f191507ef8d4d08783c2c8e50f12257921ab3356fff55ba69a8e40849fbf958"
     },
     {
       "path": "src/models/indexes_create_response201.rs",
@@ -348,7 +356,7 @@
     },
     {
       "path": "src/models/mod.rs",
-      "sha256": "85218e4b6945b48cdbf22db5b27b1595ab8866105c4bcce22ddcccd099201d86"
+      "sha256": "96edb97a812421502a4d7574c4d02ca1ed2f61cf56309ea324025a3677b9909d"
     },
     {
       "path": "src/models/okf_bundle_export_create_response201.rs",

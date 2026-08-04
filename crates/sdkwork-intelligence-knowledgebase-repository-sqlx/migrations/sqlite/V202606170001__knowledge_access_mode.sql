@@ -1,4 +1,4 @@
--- Knowledge access mode defaults and embedding vector storage for claw-router RAG.
+-- Knowledge access mode defaults and embedding vector storage for cloud-router RAG.
 
 ALTER TABLE kb_agent_profile
     ADD COLUMN knowledge_mode TEXT NOT NULL DEFAULT 'okf_bundle';

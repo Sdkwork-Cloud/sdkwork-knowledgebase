@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_mode, KnowledgeEngineDescriptor, KnowledgeEngineDocument,
     KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef, KnowledgeEngineError,
@@ -33,7 +33,7 @@ use super::KnowledgeEngine;
 pub struct RagIndexRebuildDeps {
     pub index_store: Arc<dyn KnowledgeIndexStore>,
     pub embedding_store: Arc<dyn KnowledgeEmbeddingStore>,
-    pub embedder: Option<ClawRouterEmbeddingClient>,
+    pub embedder: Option<CloudRouterEmbeddingClient>,
 }
 
 pub struct RagNativeKnowledgeEngine {

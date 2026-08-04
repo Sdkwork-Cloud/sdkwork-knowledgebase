@@ -99,9 +99,15 @@ function resolveSessionStorage(
   if (typeof window === 'undefined') {
     return {};
   }
-  if (tokenStorage === 'browser-local' || tokenStorage === 'browser-session') {
+  if (tokenStorage === 'browser-local') {
+    // Persistent browser login: keep the legacy sessionStorage migration path.
     migrateLegacyBrowserSession();
     return { storage: window.localStorage };
+  }
+  if (tokenStorage === 'browser-session') {
+    // Session-scoped login: tokens live in sessionStorage and expire with the
+    // tab, shrinking the XSS-exposed credential window.
+    return { storage: window.sessionStorage };
   }
   if (tokenStorage === 'os-secure-storage') {
     return createDesktopSecureSessionStorage() ?? {};

@@ -21,9 +21,12 @@ function readStorage(): Storage | undefined {
   }
 
   const tokenStorage = createRuntimeConfig(import.meta.env).auth.tokenStorage;
-  if (tokenStorage === 'browser-local' || tokenStorage === 'browser-session') {
+  if (tokenStorage === 'browser-local') {
     migrateLegacyBrowserSession();
     return window.localStorage;
+  }
+  if (tokenStorage === 'browser-session') {
+    return window.sessionStorage;
   }
   return undefined;
 }

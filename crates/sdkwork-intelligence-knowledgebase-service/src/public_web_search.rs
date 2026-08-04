@@ -1,3 +1,4 @@
+use crate::bounded_http_body::read_bounded_http_body;
 use sdkwork_knowledgebase_contract::rag::KnowledgeFilter;
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use serde::Deserialize;
@@ -9,6 +10,9 @@ pub const PUBLIC_WEB_TOP_K_METADATA_KEY: &str = "publicWebTopK";
 const DEFAULT_PUBLIC_WEB_TOP_K: usize = 5;
 const MAX_PUBLIC_WEB_TOP_K: usize = 8;
 const MAX_QUERY_LEN: usize = 256;
+/// Cap on provider response bodies so a misbehaving DuckDuckGo/searxng
+/// instance cannot exhaust process memory.
+const MAX_PUBLIC_SEARCH_RESPONSE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublicWebSearchHit {
@@ -122,9 +126,10 @@ async fn search_via_duckduckgo(
         )));
     }
 
-    let payload = response
-        .json::<DuckDuckGoResponse>()
+    let bytes = read_bounded_http_body(response, MAX_PUBLIC_SEARCH_RESPONSE_BYTES)
         .await
+        .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?;
+    let payload = serde_json::from_slice::<DuckDuckGoResponse>(&bytes)
         .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?;
     Ok(collect_duckduckgo_hits(payload, top_k))
 }
@@ -157,9 +162,10 @@ async fn search_via_searxng(
         )));
     }
 
-    let payload = response
-        .json::<SearxngResponse>()
+    let bytes = read_bounded_http_body(response, MAX_PUBLIC_SEARCH_RESPONSE_BYTES)
         .await
+        .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?;
+    let payload = serde_json::from_slice::<SearxngResponse>(&bytes)
         .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?;
 
     let mut hits = Vec::new();

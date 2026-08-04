@@ -27,8 +27,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     UpsertKnowledgeOkfCandidateRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore,
-    KnowledgeOkfConceptLinkStoreError, ReplaceKnowledgeOkfConceptLinksRecord,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkRecord,
+    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
+    ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
@@ -1477,12 +1478,13 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
         Ok(inbound)
     }
 
-    async fn list_orphan_concept_ids(
+    async fn list_inbound_link_targets_page(
         &self,
         space_id: u64,
-        published_concept_ids: &[String],
-    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
-        let inbound: BTreeSet<String> = self
+        after_concept_id: Option<&str>,
+        limit: u32,
+    ) -> Result<InboundLinkTargetsPage, KnowledgeOkfConceptLinkStoreError> {
+        let mut targets: Vec<String> = self
             .outbound
             .lock()
             .unwrap()
@@ -1490,18 +1492,29 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
             .filter(|((link_space_id, _), _)| *link_space_id == space_id)
             .flat_map(|(_, links)| links.iter().map(|link| link.to_concept_id.clone()))
             .collect();
-        Ok(published_concept_ids
-            .iter()
-            .filter(|concept_id| !inbound.contains(*concept_id))
-            .cloned()
-            .collect())
+        targets.sort();
+        targets.dedup();
+        if let Some(after) = after_concept_id {
+            targets.retain(|target| target.as_str() > after);
+        }
+        let limit = limit as usize;
+        let has_more = targets.len() > limit;
+        targets.truncate(limit);
+        let next_cursor = if has_more { targets.last().cloned() } else { None };
+        Ok(InboundLinkTargetsPage {
+            targets,
+            next_cursor,
+            has_more,
+        })
     }
 
-    async fn list_active_link_edges(
+    async fn list_active_link_edges_page(
         &self,
         space_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
-        let edges = self
+        after: Option<LinkEdgeCursor>,
+        limit: u32,
+    ) -> Result<LinkEdgePage, KnowledgeOkfConceptLinkStoreError> {
+        let mut edges = self
             .outbound
             .lock()
             .unwrap()
@@ -1514,7 +1527,33 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
                     anchor_text: link.anchor_text.clone(),
                 })
             })
-            .collect();
-        Ok(edges)
+            .collect::<Vec<_>>();
+        edges.sort_by(|left, right| {
+            (&left.from_concept_id, &left.to_concept_id, &left.anchor_text)
+                .cmp(&(&right.from_concept_id, &right.to_concept_id, &right.anchor_text))
+        });
+        if let Some(cursor) = after {
+            edges.retain(|edge| {
+                (&edge.from_concept_id, &edge.to_concept_id, &edge.anchor_text)
+                    > (&cursor.from_concept_id, &cursor.to_concept_id, &cursor.anchor_text)
+            });
+        }
+        let limit = limit as usize;
+        let has_more = edges.len() > limit;
+        edges.truncate(limit);
+        let next_cursor = if has_more {
+            edges.last().map(|edge| LinkEdgeCursor {
+                from_concept_id: edge.from_concept_id.clone(),
+                to_concept_id: edge.to_concept_id.clone(),
+                anchor_text: edge.anchor_text.clone(),
+            })
+        } else {
+            None
+        };
+        Ok(LinkEdgePage {
+            edges,
+            next_cursor,
+            has_more,
+        })
     }
 }

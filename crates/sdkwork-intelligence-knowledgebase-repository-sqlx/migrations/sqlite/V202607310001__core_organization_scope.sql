@@ -29,6 +29,33 @@ ALTER TABLE kb_market_listing ADD COLUMN organization_id INTEGER NOT NULL DEFAUL
 ALTER TABLE kb_market_subscription ADD COLUMN organization_id INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE kb_audit_event ADD COLUMN organization_id INTEGER NOT NULL DEFAULT 0;
 
+-- Backfill organization ownership from the parent kb_space so pre-existing
+-- fixture rows are never silently re-homed to organization 0 (mirrors the
+-- application-root PostgreSQL migration's backfill semantics).
+UPDATE kb_collection SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_collection.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_source SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_source.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_drive_object_ref SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_drive_object_ref.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_document SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_document.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_chunk SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_chunk.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_index SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_index.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_agent_knowledge_binding SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_agent_knowledge_binding.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_ingestion_job SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_ingestion_job.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_concept SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_concept.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_bundle_file SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_bundle_file.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_schema_profile SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_schema_profile.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_log_entry SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_log_entry.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_local_mirror_package SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_local_mirror_package.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_space_context_binding SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_space_context_binding.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_concept_link SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_concept_link.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_candidate SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_okf_candidate.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_market_listing SET organization_id = COALESCE((SELECT organization_id FROM kb_space WHERE kb_space.id = kb_market_listing.space_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_document_version SET organization_id = COALESCE((SELECT organization_id FROM kb_document WHERE kb_document.id = kb_document_version.document_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_embedding SET organization_id = COALESCE((SELECT organization_id FROM kb_index WHERE kb_index.id = kb_embedding.index_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_retrieval_hit SET organization_id = COALESCE((SELECT organization_id FROM kb_chunk WHERE kb_chunk.id = kb_retrieval_hit.chunk_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_ingestion_job_item SET organization_id = COALESCE((SELECT organization_id FROM kb_ingestion_job WHERE kb_ingestion_job.id = kb_ingestion_job_item.job_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_okf_concept_revision SET organization_id = COALESCE((SELECT organization_id FROM kb_okf_concept WHERE kb_okf_concept.id = kb_okf_concept_revision.concept_row_id), organization_id) WHERE organization_id = 0;
+UPDATE kb_market_subscription SET organization_id = COALESCE((SELECT organization_id FROM kb_market_listing WHERE kb_market_listing.id = kb_market_subscription.listing_id), organization_id) WHERE organization_id = 0;
+
 -- FTS is a rebuildable client-local projection. Rebuild it so account or
 -- organization switching cannot reuse a tenant-only search index.
 DROP TABLE IF EXISTS kb_chunk_fts;

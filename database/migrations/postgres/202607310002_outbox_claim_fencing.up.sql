@@ -22,9 +22,19 @@ ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claim_owner VARCHAR(128);
 ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claim_token VARCHAR(64);
 ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS dead_lettered_at TIMESTAMP;
 
+-- Reset only stale in-flight claims (claimed longer than the five-minute stale
+-- window). Claims still owned by an active worker are preserved so a
+-- mid-delivery worker is never silently fenced into duplicate delivery.
+-- `claimed_at` is stored as RFC3339 UTC text; the second-precision prefix is
+-- compared against the cutoff formatted with the same layout.
 UPDATE kb_outbox_event
 SET status = 0, claimed_at = NULL, claim_owner = NULL, claim_token = NULL
-WHERE status = 3;
+WHERE status = 3
+  AND claimed_at IS NOT NULL
+  AND LEFT(claimed_at, 19) < to_char(
+        CURRENT_TIMESTAMP - INTERVAL '5 minutes',
+        'YYYY-MM-DD"T"HH24:MI:SS'
+      );
 
 ALTER TABLE kb_outbox_event DROP CONSTRAINT IF EXISTS ck_kb_outbox_event_claim_pair;
 ALTER TABLE kb_outbox_event ADD CONSTRAINT ck_kb_outbox_event_claim_pair CHECK (

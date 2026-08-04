@@ -3,22 +3,22 @@ use std::sync::Arc;
 
 use crate::async_bridge::block_on_async;
 
-use clawrouter_open_sdk::{OpenAiEmbeddingsRequest, SdkworkAiClient, SdkworkError};
+use cloudrouter_open_sdk::{OpenAiEmbeddingsRequest, SdkworkAiClient, SdkworkError};
 
-pub const DEFAULT_CLAW_ROUTER_EMBEDDING_MODEL_ID: &str = "openai/text-embedding-3-small";
-pub const CLAW_ROUTER_EMBEDDINGS_METHOD: &str = "embeddings.create";
+pub const DEFAULT_CLOUDROUTER_EMBEDDING_MODEL_ID: &str = "openai/text-embedding-3-small";
+pub const CLOUDROUTER_EMBEDDINGS_METHOD: &str = "embeddings.create";
 
 #[derive(Clone)]
-pub struct ClawRouterEmbeddingClient {
+pub struct CloudRouterEmbeddingClient {
     client: Arc<SdkworkAiClient>,
     default_model_id: String,
 }
 
-impl ClawRouterEmbeddingClient {
+impl CloudRouterEmbeddingClient {
     pub fn new(client: Arc<SdkworkAiClient>) -> Self {
         Self {
             client,
-            default_model_id: DEFAULT_CLAW_ROUTER_EMBEDDING_MODEL_ID.to_string(),
+            default_model_id: DEFAULT_CLOUDROUTER_EMBEDDING_MODEL_ID.to_string(),
         }
     }
 
@@ -53,7 +53,7 @@ impl ClawRouterEmbeddingClient {
             .first()
             .map(|item| item.embedding.iter().map(|value| *value as f32).collect())
             .ok_or_else(|| {
-                "claw-router embeddings response did not include vector data".to_string()
+                "cloud-router embeddings response did not include vector data".to_string()
             })
     }
 

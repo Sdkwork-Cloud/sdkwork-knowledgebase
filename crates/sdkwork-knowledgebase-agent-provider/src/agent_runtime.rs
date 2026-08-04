@@ -9,7 +9,7 @@ use crate::agent_implementation::{
     validate_registered_agent_implementation, CONTRACT_MODEL_PROVIDER_ID,
 };
 use crate::{
-    ClawRouterChatModelProvider, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
+    CloudRouterChatModelProvider, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
     OkfKnowledgeProvider, SdkworkKnowledgebaseProvider, SpaceEngineKnowledgeProvider,
     OKF_KNOWLEDGE_PROVIDER_ID, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::knowledge_access::SpaceKnowledgeEngineClient;
 
-pub const CLAW_ROUTER_OPEN_HTTP_URL_ENV: &str = crate::claw_router::CLAW_ROUTER_OPEN_HTTP_URL_ENV;
+pub const CLOUDROUTER_OPEN_HTTP_URL_ENV: &str = crate::cloud_router::CLOUDROUTER_OPEN_HTTP_URL_ENV;
 
 pub struct KnowledgeAgentRuntimeBuildRequest<R, W> {
     pub agent_implementation_id: String,
@@ -37,7 +37,7 @@ pub struct KnowledgeAgentRuntimeBuildRequest<R, W> {
     pub retrieval_client: R,
     pub okf_client: W,
     pub tenant_id: u64,
-    pub claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
+    pub cloud_router_client: Option<Arc<cloudrouter_open_sdk::SdkworkAiClient>>,
     pub space_engine_client: Option<Arc<dyn SpaceKnowledgeEngineClient>>,
     pub external_knowledge_provider_ids: Vec<String>,
 }
@@ -58,7 +58,7 @@ where
         builder,
         &request.agent_implementation_id,
         &request.model_provider_id,
-        request.claw_router_client,
+        request.cloud_router_client,
     )?;
 
     let _ = request.mode;
@@ -103,7 +103,7 @@ fn configure_agent_implementation(
     builder: RuntimeBuilder,
     agent_implementation_id: &str,
     model_provider_id: &str,
-    claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
+    cloud_router_client: Option<Arc<cloudrouter_open_sdk::SdkworkAiClient>>,
 ) -> Result<RuntimeBuilder, String> {
     match agent_implementation_id {
         KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID => {
@@ -121,16 +121,16 @@ fn configure_agent_implementation(
                 .register_policy_provider("provider.policy.allow", "0.1.0", AllowPolicyProvider))
         }
         RIG_AGENT_IMPLEMENTATION_ID => {
-            let client = claw_router_client.ok_or_else(|| {
+            let client = cloud_router_client.ok_or_else(|| {
                 format!(
-                    "Rig agent implementation requires claw-router SdkworkAiClient ({CLAW_ROUTER_OPEN_HTTP_URL_ENV})"
+                    "Rig agent implementation requires cloud-router SdkworkAiClient ({CLOUDROUTER_OPEN_HTTP_URL_ENV})"
                 )
             })?;
             Ok(builder
                 .register_model_provider(
                     rig_ids::MODEL_PROVIDER_ID,
                     "0.1.0",
-                    ClawRouterChatModelProvider::for_rig(client),
+                    CloudRouterChatModelProvider::for_rig(client),
                 )
                 .pipe(|configured| RigKernelPlugin::fail_closed().configure_runtime(configured)))
         }

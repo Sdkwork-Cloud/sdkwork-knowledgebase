@@ -105,7 +105,20 @@ impl<'a> OkfBundleLinterService<'a> {
         }
 
         let orphan_concept_ids = if let Some(link_store) = self.link_store {
-            let mut orphans = link_store.list_orphan_concept_ids(space_id, &known).await?;
+            // Page through the complete inbound target set so orphan detection
+            // never silently truncates on large spaces.
+            let inbound =
+                crate::ports::knowledge_okf_concept_link_store::list_all_inbound_link_targets(
+                    link_store,
+                    space_id,
+                )
+                .await?;
+            let inbound_set = inbound.into_iter().collect::<std::collections::BTreeSet<_>>();
+            let mut orphans = known
+                .iter()
+                .filter(|concept_id| !inbound_set.contains(*concept_id))
+                .cloned()
+                .collect::<Vec<_>>();
             let index_linked_concepts = self
                 .read_all_index_linked_concepts(&concepts, &known, drive_space_id)
                 .await;

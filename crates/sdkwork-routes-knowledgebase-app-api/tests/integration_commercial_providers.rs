@@ -7,6 +7,7 @@ use tower::util::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+#[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn configured_sdk_media_providers_return_real_results() {
     let provider = MockServer::start().await;
@@ -32,10 +33,10 @@ async fn configured_sdk_media_providers_return_real_results() {
         .await;
 
     std::env::set_var(
-        "SDKWORK_CLAW_ROUTER_APPLICATION_OPEN_HTTP_URL",
+        "SDKWORK_CLOUDROUTER_APPLICATION_OPEN_HTTP_URL",
         provider.uri(),
     );
-    std::env::set_var("SDKWORK_CLAW_ROUTER_API_KEY", "integration-provider-key");
+    std::env::set_var("SDKWORK_CLOUDROUTER_API_KEY", "integration-provider-key");
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app).await;

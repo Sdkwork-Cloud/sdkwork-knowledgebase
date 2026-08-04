@@ -17,6 +17,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         WikiPublicPublicationMetadata, WikiPublicRouteResolution, WikiResolvedPublicPage,
     },
 };
+use sdkwork_web_core::access_token_jwt;
 use sdkwork_routes_knowledgebase_internal_api::{
     build_router_with_services, KnowledgebaseDriveEventReceiver, KnowledgebaseWikiPublicProvider,
 };
@@ -216,11 +217,22 @@ fn request(app_id: Option<&str>, body: impl Into<Body>) -> Request<Body> {
         .header(
             "x-sdkwork-idempotency-key",
             format!("outbox-1:{CHANNEL_ID}"),
-        );
+        )
+        // Internal surfaces authenticate with X-SDKWork-Ingress-Token plus an
+        // access token (the web framework rejects credential-profile
+        // contamination such as x-api-key on ingress-token routes).
+        .header("Access-Token", fixture_access_token());
     if let Some(app_id) = app_id {
-        builder = builder.header("x-api-key", ingress_token(app_id));
+        builder = builder.header("X-SDKWork-Ingress-Token", ingress_token(app_id));
     }
     builder.body(body.into()).expect("request should be valid")
+}
+
+fn fixture_access_token() -> String {
+    // The dev/test resolver parses unsigned JWT payloads; the tenant must
+    // match the ingress claim below (tenant_id=101). The fixture comes from
+    // sdkwork-web-core so it stays aligned with the framework's token contract.
+    sdkwork_web_core::access_token_jwt("101", "30", "s-1", "sdkwork-knowledgebase")
 }
 
 #[tokio::test]
@@ -323,7 +335,8 @@ async fn wiki_provider_routes_require_web_server_identity_and_principal_scope() 
             Request::builder()
                 .method(Method::GET)
                 .uri(uri)
-                .header("x-api-key", ingress_token("sdkwork-drive"))
+                .header("X-SDKWork-Ingress-Token", ingress_token("sdkwork-drive"))
+                .header("Access-Token", fixture_access_token())
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -336,7 +349,8 @@ async fn wiki_provider_routes_require_web_server_identity_and_principal_scope() 
             Request::builder()
                 .method(Method::GET)
                 .uri(uri)
-                .header("x-api-key", ingress_token("sdkwork-web"))
+                .header("X-SDKWork-Ingress-Token", ingress_token("sdkwork-web"))
+                .header("Access-Token", fixture_access_token())
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -370,7 +384,8 @@ async fn wiki_provider_content_and_lists_preserve_binary_and_page_contracts() {
             Request::builder()
                 .method(Method::GET)
                 .uri("/internal/v3/api/knowledgebase/wiki_publications/11111111-1111-4111-8111-111111111501/contents/content-1")
-                .header("x-api-key", &token)
+                .header("X-SDKWork-Ingress-Token", &token)
+                .header("Access-Token", fixture_access_token())
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -390,7 +405,8 @@ async fn wiki_provider_content_and_lists_preserve_binary_and_page_contracts() {
             Request::builder()
                 .method(Method::GET)
                 .uri("/internal/v3/api/knowledgebase/wiki_publications/11111111-1111-4111-8111-111111111501/navigation?page_size=1")
-                .header("x-api-key", token)
+                .header("X-SDKWork-Ingress-Token", token)
+                .header("Access-Token", fixture_access_token())
                 .body(Body::empty())
                 .expect("request"),
         )

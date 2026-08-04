@@ -29,8 +29,8 @@ function Ensure-Junction {
 
 $aliases = @(
     @{
-        Link = Join-Path $WorkspaceRoot 'sdkwork-claw-router'
-        Target = Join-Path $WorkspaceRoot 'sdkwork-clawrouter'
+        Link = Join-Path $WorkspaceRoot 'sdkwork-cloudrouter-router'
+        Target = Join-Path $WorkspaceRoot 'sdkwork-cloudrouter'
     }
 )
 

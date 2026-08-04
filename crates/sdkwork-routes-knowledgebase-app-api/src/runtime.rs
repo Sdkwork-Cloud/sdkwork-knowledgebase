@@ -80,7 +80,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use sdkwork_knowledgebase_agent_provider::{
-    resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
+    resolve_cloud_router_client_from_env, CloudRouterEmbeddingClient,
 };
 
 use crate::{
@@ -750,6 +750,14 @@ impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
     }
 }
 
+fn outbox_max_retries() -> u32 {
+    std::env::var("SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(5)
+        .clamp(1, 32)
+}
+
 impl KnowledgebaseRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
         let provider_credential_resolver = default_provider_credential_resolver()?;
@@ -913,13 +921,13 @@ impl KnowledgebaseRuntime {
         };
 
         let retrieval_backend: SharedKnowledgeRetrievalBackend =
-            resolve_claw_router_client_from_env()
+            resolve_cloud_router_client_from_env()
                 .ok()
                 .map(|client| {
                     Arc::new(
-                        sdkwork_intelligence_knowledgebase_service::embedding_retrieval_backend::ClawRouterEmbeddingRetrievalBackend::new(
+                        sdkwork_intelligence_knowledgebase_service::embedding_retrieval_backend::CloudRouterEmbeddingRetrievalBackend::new(
                             base_retrieval.clone(),
-                            ClawRouterEmbeddingClient::new(Arc::new(client)),
+                            CloudRouterEmbeddingClient::new(Arc::new(client)),
                         ),
                     ) as SharedKnowledgeRetrievalBackend
                 })
@@ -994,9 +1002,9 @@ impl KnowledgebaseRuntime {
             organization_id,
             database_engine,
         ));
-        let rag_embedder = resolve_claw_router_client_from_env()
+        let rag_embedder = resolve_cloud_router_client_from_env()
             .ok()
-            .map(|client| ClawRouterEmbeddingClient::new(Arc::new(client)));
+            .map(|client| CloudRouterEmbeddingClient::new(Arc::new(client)));
 
         let knowledge_engines = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
             tenant_id,
@@ -1760,16 +1768,16 @@ impl KnowledgebaseRuntime {
     ) -> Option<usize> {
         use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgePostIngestEmbeddingService;
         use sdkwork_knowledgebase_agent_provider::{
-            resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
+            resolve_cloud_router_client_from_env, CloudRouterEmbeddingClient,
         };
 
-        let client = resolve_claw_router_client_from_env().ok()?;
+        let client = resolve_cloud_router_client_from_env().ok()?;
         let index = self
             .index_store()
             .get_or_create_active_vector_index(space_id, 0)
             .await
             .ok()?;
-        let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
+        let embedder = CloudRouterEmbeddingClient::new(Arc::new(client));
         let service = KnowledgePostIngestEmbeddingService::new(
             self.chunk_store(),
             self.embedding_store(),
@@ -1788,7 +1796,7 @@ impl KnowledgebaseRuntime {
     {
         use sdkwork_intelligence_knowledgebase_service::outbox::KnowledgeOutboxPublisherService;
 
-        let requeued = self.requeue_failed_outbox_events(limit).await?;
+        let requeue = self.requeue_failed_outbox_events(limit).await?;
         let mut result = KnowledgeOutboxPublisherService::new(
             self.tenant_id(),
             self.outbox_store(),
@@ -1797,18 +1805,28 @@ impl KnowledgebaseRuntime {
         .publish_pending(limit)
         .await
         .map_err(|error| error.to_string())?;
-        result.requeued = requeued;
+        result.requeued = requeue.requeued;
+        result.dead_lettered = requeue.dead_lettered;
+        if result.dead_lettered > 0 {
+            tracing::error!(
+                target: "sdkwork.knowledgebase.outbox",
+                dead_lettered = result.dead_lettered,
+                max_retries = outbox_max_retries(),
+                "knowledgebase outbox events exhausted their retry budget and were dead-lettered; inspect the webhook endpoint"
+            );
+        }
         Ok(result)
     }
 
-    pub async fn requeue_failed_outbox_events(&self, limit: u32) -> Result<usize, String> {
-        let max_retry_count = std::env::var("SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES")
-            .ok()
-            .and_then(|value| value.parse::<u32>().ok())
-            .unwrap_or(5)
-            .clamp(1, 32);
+    pub async fn requeue_failed_outbox_events(
+        &self,
+        limit: u32,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::OutboxRequeueResult,
+        String,
+    > {
         self.outbox_store()
-            .requeue_failed_events(limit, max_retry_count)
+            .requeue_failed_events(limit, outbox_max_retries())
             .await
             .map_err(|error| error.to_string())
     }
@@ -2014,11 +2032,12 @@ impl KnowledgebaseRuntime {
         worker_id: &str,
         lease_duration: time::Duration,
         limit: u32,
+        max_attempts: u32,
     ) -> Result<usize, String> {
         use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService;
 
         KnowledgeIngestionJobWorkerService::new(self.ingestion_job_store(), self.drive_storage())
-            .process_queued_jobs(worker_id, lease_duration, limit)
+            .process_queued_jobs(worker_id, lease_duration, limit, max_attempts)
             .await
             .map(|result| result.processed)
             .map_err(|error| error.to_string())
@@ -2508,7 +2527,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
         );
         let okf_client =
             RuntimeOkfKnowledgeClient::new(self.runtime.clone(), execution_context.clone());
-        let claw_router_client = resolve_claw_router_client_from_env()
+        let cloud_router_client = resolve_cloud_router_client_from_env()
             .ok()
             .map(std::sync::Arc::new);
         let retrieval = self.runtime.retrieval_service();
@@ -2524,7 +2543,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
             &retrieval,
             retrieval_client,
             okf_client,
-            claw_router_client,
+            cloud_router_client,
             Some(&plan_resolver),
             Some(&space_mode_resolver),
             Some(space_engine_client),

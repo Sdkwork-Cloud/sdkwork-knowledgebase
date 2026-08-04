@@ -90,6 +90,8 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest session snapshot for debounced stream persistence without re-render.
+  const sessionsRef = useRef<Session[] | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const wasInChatModeRef = useRef(false);
   const mediaMigrationDoneRef = useRef(false);
@@ -392,6 +394,21 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
 
     const chars = Array.from(responseText);
     let index = 0;
+    // Persist only once per chunk of streamed characters: serializing the full
+    // session list to localStorage on every 10-12ms tick is wasteful and blocks
+    // the main thread (each write is a synchronous JSON.stringify + storage IO).
+    const PERSIST_EVERY_CHARS = 32;
+    let persistedUpTo = -1;
+    const persistStreamedSession = () => {
+      if (persistedUpTo >= index) {
+        return;
+      }
+      persistedUpTo = index;
+      const snapshot = sessionsRef.current;
+      if (snapshot) {
+        localStorage.setItem(SEARCH_SESSIONS_STORAGE_KEY, JSON.stringify(snapshot));
+      }
+    };
     streamIntervalRef.current = setInterval(() => {
       setSessions((prev) => {
         const list = prev.map((s) => {
@@ -414,7 +431,11 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
           }
           return s;
         });
-        localStorage.setItem(SEARCH_SESSIONS_STORAGE_KEY, JSON.stringify(list));
+        sessionsRef.current = list;
+        if (index % PERSIST_EVERY_CHARS === 0) {
+          localStorage.setItem(SEARCH_SESSIONS_STORAGE_KEY, JSON.stringify(list));
+          persistedUpTo = index;
+        }
         return list;
       });
 
@@ -423,6 +444,9 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
         if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
         streamIntervalRef.current = null;
         setIsTyping(false);
+        // Final flush guarantees the completed answer is persisted even when
+        // the last chunk boundary was not a persist tick.
+        persistStreamedSession();
       }
     }, deepThinkEnabled ? 10 : 12);
   };

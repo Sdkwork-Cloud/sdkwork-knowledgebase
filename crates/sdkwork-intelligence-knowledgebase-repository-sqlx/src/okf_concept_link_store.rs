@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore,
+    KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sqlx::AnyPool;
 use sqlx::Row;
-use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -14,11 +14,9 @@ use uuid::Uuid;
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
-/// Maximum inbound link targets scanned for orphan concept detection per space.
-pub const MAX_OKF_ORPHAN_LINK_TARGETS: i64 = 5000;
-
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
+const MAX_LINK_SCAN_PAGE_SIZE: u32 = 2_000;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeOkfConceptLinkStore {
@@ -161,70 +159,124 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         Ok(rows)
     }
 
-    async fn list_orphan_concept_ids(
+    async fn list_inbound_link_targets_page(
         &self,
         space_id: u64,
-        published_concept_ids: &[String],
-    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        after_concept_id: Option<&str>,
+        limit: u32,
+    ) -> Result<InboundLinkTargetsPage, KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let inbound_targets = sqlx::query_scalar::<_, String>(
+        let limit = i64::from(limit.clamp(1, MAX_LINK_SCAN_PAGE_SIZE));
+        let rows = sqlx::query(
             r#"
             SELECT DISTINCT to_concept_id
             FROM kb_okf_concept_link
             WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = $4
-            LIMIT $5
+              AND ($5 IS NULL OR to_concept_id > $5)
+            ORDER BY to_concept_id ASC
+            LIMIT $6
             "#,
         )
         .bind(tenant_id)
         .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
-        .bind(MAX_OKF_ORPHAN_LINK_TARGETS)
+        .bind(after_concept_id)
+        .bind(limit + 1)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
-        let inbound: BTreeSet<String> = inbound_targets.into_iter().collect();
-        Ok(published_concept_ids
-            .iter()
-            .filter(|concept_id| !inbound.contains(*concept_id))
-            .cloned()
-            .collect())
+
+        let has_more = rows.len() as i64 > limit;
+        let mut targets = rows
+            .into_iter()
+            .take(limit as usize)
+            .map(|row| row.try_get::<String, _>("to_concept_id"))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
+        let next_cursor = if has_more {
+            targets.last().cloned()
+        } else {
+            None
+        };
+        Ok(InboundLinkTargetsPage {
+            targets,
+            next_cursor,
+            has_more,
+        })
     }
 
-    async fn list_active_link_edges(
+    async fn list_active_link_edges_page(
         &self,
         space_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
+        after: Option<LinkEdgeCursor>,
+        limit: u32,
+    ) -> Result<LinkEdgePage, KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
+        let limit = i64::from(limit.clamp(1, MAX_LINK_SCAN_PAGE_SIZE));
         let rows = sqlx::query(
             r#"
             SELECT from_concept_id, to_concept_id, anchor_text
             FROM kb_okf_concept_link
             WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = $4
+              AND (
+                  $5 IS NULL
+                  OR from_concept_id > $5
+                  OR (from_concept_id = $5 AND to_concept_id > $6)
+                  OR (from_concept_id = $5 AND to_concept_id = $6 AND anchor_text > $7)
+              )
             ORDER BY from_concept_id ASC, to_concept_id ASC, anchor_text ASC
-            LIMIT 2000
+            LIMIT $8
             "#,
         )
         .bind(tenant_id)
         .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
+        .bind(after.as_ref().map(|cursor| cursor.from_concept_id.as_str()))
+        .bind(after.as_ref().map(|cursor| cursor.to_concept_id.as_str()))
+        .bind(after.as_ref().map(|cursor| cursor.anchor_text.as_str()))
+        .bind(limit + 1)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
-        Ok(rows
+        let has_more = rows.len() as i64 > limit;
+        let mut edges = rows
             .into_iter()
-            .map(|row| KnowledgeOkfConceptLinkEdge {
-                from_concept_id: row.get("from_concept_id"),
-                to_concept_id: row.get("to_concept_id"),
-                anchor_text: row.get("anchor_text"),
+            .take(limit as usize)
+            .map(|row| {
+                Ok(KnowledgeOkfConceptLinkEdge {
+                    from_concept_id: row.try_get("from_concept_id").map_err(|error| {
+                        KnowledgeOkfConceptLinkStoreError::Internal(error.to_string())
+                    })?,
+                    to_concept_id: row.try_get("to_concept_id").map_err(|error| {
+                        KnowledgeOkfConceptLinkStoreError::Internal(error.to_string())
+                    })?,
+                    anchor_text: row.try_get("anchor_text").map_err(|error| {
+                        KnowledgeOkfConceptLinkStoreError::Internal(error.to_string())
+                    })?,
+                })
             })
-            .collect())
+            .collect::<Result<Vec<_>, KnowledgeOkfConceptLinkStoreError>>()?;
+        let next_cursor = if has_more {
+            edges.last().map(|edge| LinkEdgeCursor {
+                from_concept_id: edge.from_concept_id.clone(),
+                to_concept_id: edge.to_concept_id.clone(),
+                anchor_text: edge.anchor_text.clone(),
+            })
+        } else {
+            None
+        };
+        Ok(LinkEdgePage {
+            edges,
+            next_cursor,
+            has_more,
+        })
     }
 }
 

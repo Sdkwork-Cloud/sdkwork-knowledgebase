@@ -42,8 +42,8 @@ pub fn resolve_rig_model_provider_id(model_provider_id: &str) -> String {
     if model_provider_id == CONTRACT_MODEL_PROVIDER_ID {
         return model_provider_id.to_string();
     }
-    if crate::claw_router::is_rig_model_provider(model_provider_id) {
-        return crate::claw_router::RIG_MODEL_PROVIDER_ID.to_string();
+    if crate::cloud_router::is_rig_model_provider(model_provider_id) {
+        return crate::cloud_router::RIG_MODEL_PROVIDER_ID.to_string();
     }
     model_provider_id.to_string()
 }

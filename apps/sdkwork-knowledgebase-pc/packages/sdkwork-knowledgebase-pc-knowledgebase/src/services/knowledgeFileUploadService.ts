@@ -18,6 +18,13 @@ import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserPare
 import { resolveDriveNodeDownloadUrl } from './knowledgeDriveMediaService';
 
 const MAX_TEXT_BYTES = 512 * 1024;
+/**
+ * Client-side guard for the main upload flow: Drive uploads are chunked and
+ * resumable, but a pre-upload size check keeps multi-GB mistakes out of the
+ * queue and gives the user immediate feedback instead of a long-running
+ * upload. Server-side Drive constraints remain authoritative.
+ */
+const MAX_UPLOAD_FILE_BYTES = 4 * 1024 * 1024 * 1024;
 const TEXT_EXTENSIONS = new Set([
   '.md',
   '.markdown',
@@ -308,6 +315,13 @@ export async function uploadKnowledgebaseFiles(
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
+    if (file.size > MAX_UPLOAD_FILE_BYTES) {
+      failures.push({
+        fileName: file.name,
+        message: `File exceeds the ${formatBytes(MAX_UPLOAD_FILE_BYTES)} upload limit`,
+      });
+      continue;
+    }
     try {
       results.push(
         await uploadSingleFile(spaceId, kbId, file, index, overrideType, parentId, folderCache),

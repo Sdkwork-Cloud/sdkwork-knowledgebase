@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::async_bridge::block_on_async;
 
-use clawrouter_open_sdk::{
+use cloudrouter_open_sdk::{
     OpenAiChatCompletionRequest, OpenAiChatMessage, SdkworkAiClient, SdkworkError,
 };
 use sdkwork_agent_kernel::{
@@ -11,46 +11,46 @@ use sdkwork_agent_kernel::{
     ModelResponseFormat, PolicyCategory, ProviderHealth, ProviderManifest,
 };
 
-/// Rig registers this provider id; claw-router SDK is the live LLM backend behind it.
+/// Rig registers this provider id; cloud-router SDK is the live LLM backend behind it.
 pub const RIG_MODEL_PROVIDER_ID: &str = "provider.model.rig-rust";
 pub const RIG_DEFAULT_MODEL_ID: &str = "rig.default-chat";
-pub const DEFAULT_CLAW_ROUTER_UPSTREAM_MODEL_ID: &str = "openai/gpt-4o-mini";
-pub const CLAW_ROUTER_OPEN_SDK_CRATE: &str = "clawrouter_open_sdk";
-pub const CLAW_ROUTER_CHAT_COMPLETION_METHOD: &str = "chat.create";
-pub const CLAW_ROUTER_OPEN_HTTP_URL_ENV: &str = "SDKWORK_CLAW_ROUTER_APPLICATION_OPEN_HTTP_URL";
+pub const DEFAULT_CLOUDROUTER_UPSTREAM_MODEL_ID: &str = "openai/gpt-4o-mini";
+pub const CLOUDROUTER_OPEN_SDK_CRATE: &str = "cloudrouter_open_sdk";
+pub const CLOUDROUTER_CHAT_COMPLETION_METHOD: &str = "chat.create";
+pub const CLOUDROUTER_OPEN_HTTP_URL_ENV: &str = "SDKWORK_CLOUDROUTER_APPLICATION_OPEN_HTTP_URL";
 
 #[derive(Clone)]
-pub struct ClawRouterChatModelProvider {
+pub struct CloudRouterChatModelProvider {
     client: Arc<SdkworkAiClient>,
     provider_id: String,
     rig_default_model_id: String,
     upstream_default_model_id: String,
 }
 
-impl ClawRouterChatModelProvider {
+impl CloudRouterChatModelProvider {
     pub fn for_rig(client: Arc<SdkworkAiClient>) -> Self {
         Self {
             client,
             provider_id: RIG_MODEL_PROVIDER_ID.to_string(),
             rig_default_model_id: RIG_DEFAULT_MODEL_ID.to_string(),
-            upstream_default_model_id: DEFAULT_CLAW_ROUTER_UPSTREAM_MODEL_ID.to_string(),
+            upstream_default_model_id: DEFAULT_CLOUDROUTER_UPSTREAM_MODEL_ID.to_string(),
         }
     }
 }
 
 pub fn is_rig_model_provider(model_provider_id: &str) -> bool {
     model_provider_id == RIG_MODEL_PROVIDER_ID
-        || model_provider_id == "provider.model.sdkwork-claw-router"
+        || model_provider_id == "provider.model.sdkwork-cloudrouter-router"
         || model_provider_id == "provider.model.openai"
 }
 
-pub fn resolve_claw_router_client_from_env() -> Result<SdkworkAiClient, String> {
-    let base_url = std::env::var(CLAW_ROUTER_OPEN_HTTP_URL_ENV).map_err(|_| {
-        format!("{CLAW_ROUTER_OPEN_HTTP_URL_ENV} must be set for Rig claw-router LLM access")
+pub fn resolve_cloud_router_client_from_env() -> Result<SdkworkAiClient, String> {
+    let base_url = std::env::var(CLOUDROUTER_OPEN_HTTP_URL_ENV).map_err(|_| {
+        format!("{CLOUDROUTER_OPEN_HTTP_URL_ENV} must be set for Rig cloud-router LLM access")
     })?;
     let client = SdkworkAiClient::new_with_base_url(base_url).map_err(map_sdk_error)?;
 
-    if let Ok(api_key) = std::env::var("SDKWORK_CLAW_ROUTER_API_KEY") {
+    if let Ok(api_key) = std::env::var("SDKWORK_CLOUDROUTER_API_KEY") {
         if !is_blank(Some(api_key.as_str())) {
             client.set_api_key(api_key);
         }
@@ -59,12 +59,12 @@ pub fn resolve_claw_router_client_from_env() -> Result<SdkworkAiClient, String> 
     Ok(client)
 }
 
-impl ModelProvider for ClawRouterChatModelProvider {
+impl ModelProvider for CloudRouterChatModelProvider {
     fn provider_manifest(&self) -> ProviderManifest {
         ProviderManifest::new(
             self.provider_id.clone(),
             "model",
-            "rig-rust-claw-router",
+            "rig-rust-cloud-router",
             "0.1.0",
             vec!["model.chat".to_string()],
         )
@@ -78,7 +78,7 @@ impl ModelProvider for ClawRouterChatModelProvider {
         vec![ModelDescriptor::new(
             self.rig_default_model_id.clone(),
             self.provider_id.clone(),
-            "Rig Default Chat (Claw Router)",
+            "Rig Default Chat (Cloud Router)",
             "rig",
         )
         .with_capability("model.chat")
@@ -86,10 +86,10 @@ impl ModelProvider for ClawRouterChatModelProvider {
         .with_input_mode("text")
         .with_output_mode("text")
         .with_policy_category(PolicyCategory::ModelInvoke.as_str())
-        .with_metadata("sdkwork.llm.backend", CLAW_ROUTER_OPEN_SDK_CRATE)
+        .with_metadata("sdkwork.llm.backend", CLOUDROUTER_OPEN_SDK_CRATE)
         .with_metadata(
             "sdkwork.llm.backend_method",
-            CLAW_ROUTER_CHAT_COMPLETION_METHOD,
+            CLOUDROUTER_CHAT_COMPLETION_METHOD,
         )
         .with_metadata(
             "sdkwork.llm.upstream_default_model",
@@ -114,10 +114,10 @@ impl ModelProvider for ClawRouterChatModelProvider {
         let completion =
             block_on_async(async move { client.chat().create(&completion_request).await })
                 .map_err(|error| {
-                    KernelError::provider_error("claw_router.chat.create", error.to_string())
+                    KernelError::provider_error("cloud_router.chat.create", error.to_string())
                 })?
                 .map_err(|error| {
-                    KernelError::provider_error("claw_router.chat.create", map_sdk_error(error))
+                    KernelError::provider_error("cloud_router.chat.create", map_sdk_error(error))
                 })?;
 
         let answer = completion
@@ -203,24 +203,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rig_default_model_id_maps_to_claw_router_catalog_model() {
+    fn rig_default_model_id_maps_to_cloud_router_catalog_model() {
         assert_eq!(
             resolve_upstream_model_id(
                 Some(RIG_DEFAULT_MODEL_ID),
                 RIG_DEFAULT_MODEL_ID,
-                DEFAULT_CLAW_ROUTER_UPSTREAM_MODEL_ID
+                DEFAULT_CLOUDROUTER_UPSTREAM_MODEL_ID
             ),
-            DEFAULT_CLAW_ROUTER_UPSTREAM_MODEL_ID
+            DEFAULT_CLOUDROUTER_UPSTREAM_MODEL_ID
         );
     }
 
     #[test]
-    fn explicit_profile_model_id_is_forwarded_to_claw_router() {
+    fn explicit_profile_model_id_is_forwarded_to_cloud_router() {
         assert_eq!(
             resolve_upstream_model_id(
                 Some("openai/gpt-4.1"),
                 RIG_DEFAULT_MODEL_ID,
-                DEFAULT_CLAW_ROUTER_UPSTREAM_MODEL_ID
+                DEFAULT_CLOUDROUTER_UPSTREAM_MODEL_ID
             ),
             "openai/gpt-4.1"
         );

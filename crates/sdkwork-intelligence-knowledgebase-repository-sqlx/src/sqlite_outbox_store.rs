@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, ClaimedOutboxEvent, KnowledgeOutboxStore, KnowledgeOutboxStoreError,
-    OutboxClaim, PendingOutboxEvent, MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
+    OutboxClaim, OutboxRequeueResult, PendingOutboxEvent, MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
 };
 use sdkwork_utils_rust::{is_blank, truncate};
 use sqlx::{AnyPool, Row};
@@ -369,6 +369,24 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let event_id = to_i64("event_id", claimed.event.id)?;
         let truncated_error = truncate_outbox_error(error_message);
+        // Schedule the next attempt with exponential backoff based on the NEW
+        // retry count so dead webhooks are not hammered every poll interval.
+        let new_retry_count = claimed.event.retry_count.saturating_add(1);
+        let next_attempt_at = OffsetDateTime::now_utc()
+            .checked_add(time::Duration::seconds(outbox_retry_backoff_seconds(
+                new_retry_count,
+            )))
+            .ok_or_else(|| {
+                KnowledgeOutboxStoreError::Internal(
+                    "outbox retry backoff timestamp overflow".to_string(),
+                )
+            })?
+            .format(&Rfc3339)
+            .map_err(|error| {
+                KnowledgeOutboxStoreError::Internal(format!(
+                    "outbox retry backoff timestamp format error: {error}"
+                ))
+            })?;
         let updated = sqlx::query(
             r#"
             UPDATE kb_outbox_event
@@ -378,6 +396,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                 claim_owner = NULL,
                 claim_token = NULL,
                 retry_count = retry_count + 1,
+                next_attempt_at = $9,
                 version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
               AND claim_owner = $7 AND claim_token = $8
@@ -391,6 +410,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         .bind(OUTBOX_STATUS_CLAIMED)
         .bind(&claimed.claim.owner)
         .bind(&claimed.claim.token)
+        .bind(next_attempt_at)
         .execute(&self.pool)
         .await
         .map_err(sqlx_error)?;
@@ -407,7 +427,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         &self,
         limit: u32,
         max_retry_count: u32,
-    ) -> Result<usize, KnowledgeOutboxStoreError> {
+    ) -> Result<OutboxRequeueResult, KnowledgeOutboxStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 200));
@@ -425,25 +445,30 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
               AND retry_count >= $6
             "#,
         );
-        sqlx::query(sqlx::AssertSqlSafe(dead_letter_query.as_str()))
+        let dead_lettered = sqlx::query(sqlx::AssertSqlSafe(dead_letter_query.as_str()))
             .bind(OUTBOX_STATUS_DEAD_LETTER)
-            .bind(now)
+            .bind(now.clone())
             .bind(tenant_id)
             .bind(organization_id)
             .bind(OUTBOX_STATUS_FAILED)
             .bind(max_retry_count)
             .execute(&mut *transaction)
             .await
-            .map_err(sqlx_error)?;
+            .map_err(sqlx_error)?
+            .rows_affected() as usize;
 
+        // Requeue only failed events whose backoff window has elapsed
+        // (next_attempt_at is NULL or due); future-dated events stay FAILED
+        // until their scheduled retry time.
         let updated = sqlx::query(
             r#"
             UPDATE kb_outbox_event
-            SET status = $1, dead_lettered_at = NULL, version = version + 1
+            SET status = $1, dead_lettered_at = NULL, next_attempt_at = NULL, version = version + 1
             WHERE tenant_id = $2
               AND organization_id = $3
               AND status = $4
               AND retry_count < $5
+              AND (next_attempt_at IS NULL OR next_attempt_at <= $7)
               AND id IN (
                 SELECT id
                 FROM kb_outbox_event
@@ -451,6 +476,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                   AND organization_id = $3
                   AND status = $4
                   AND retry_count < $5
+                  AND (next_attempt_at IS NULL OR next_attempt_at <= $7)
                 ORDER BY created_at ASC, id ASC
                 LIMIT $6
               )
@@ -462,13 +488,25 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         .bind(OUTBOX_STATUS_FAILED)
         .bind(max_retry_count)
         .bind(limit)
+        .bind(now)
         .execute(&mut *transaction)
         .await
         .map_err(sqlx_error)?;
         transaction.commit().await.map_err(sqlx_error)?;
 
-        Ok(updated.rows_affected() as usize)
+        Ok(OutboxRequeueResult {
+            requeued: updated.rows_affected() as usize,
+            dead_lettered,
+        })
     }
+}
+
+/// Exponential retry backoff for outbox delivery: 30s, 60s, 120s, ... capped at
+/// one hour, based on the attempt count.
+fn outbox_retry_backoff_seconds(retry_count: u32) -> i64 {
+    let exponent = i64::from(retry_count.saturating_sub(1)).min(7);
+    let backoff = 30i64.saturating_mul(1i64 << exponent);
+    backoff.min(3_600).max(30)
 }
 
 fn pending_event_from_row(

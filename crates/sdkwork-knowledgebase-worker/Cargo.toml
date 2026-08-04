@@ -28,6 +28,7 @@ sdkwork-database-sqlx.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-api-knowledgebase-standalone-gateway.workspace = true
 sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }
+sdkwork-knowledgebase-drive.workspace = true
 sdkwork-routes-knowledgebase-app-api.workspace = true
 sdkwork-web-bootstrap.workspace = true
 serde_json.workspace = true

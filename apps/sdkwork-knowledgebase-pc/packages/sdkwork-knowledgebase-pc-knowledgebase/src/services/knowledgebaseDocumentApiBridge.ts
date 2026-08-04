@@ -33,6 +33,7 @@ import {
   invalidateKnowledgeBrowserNodeCacheForKbIds,
   invalidateKnowledgeBrowserNodeCacheForSpaceIds,
   resolveBrowserDocumentId,
+  scanKnowledgeBrowserNodes,
 } from './knowledgeBrowserListService';
 import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
 import { hydrateDocumentMediaUrl } from './knowledgeDriveMediaService';
@@ -584,19 +585,13 @@ async function resolveBrowserNodeInSpace(
       }
     }
 
-    let cursor: string | null = null;
-    do {
-      const page = await listKnowledgeBrowserNodesPage(spaceId, null, { cursor });
-      const found =
-        findKnowledgeBrowserNodeByDocumentId(page.items, documentId, kbId)
-        ?? (documentIdForSdk
-          ? page.items.find((candidate) => candidate.documentId === documentIdForSdk) ?? null
-          : null);
-      if (found) {
-        return { spaceId, node: found };
-      }
-      cursor = page.hasMore ? page.nextCursor : null;
-    } while (cursor);
+    const found = await scanKnowledgeBrowserNodes(spaceId, (candidate) => {
+      return findKnowledgeBrowserNodeByDocumentId([candidate], documentId, kbId) !== null
+        || (documentIdForSdk !== null && candidate.documentId === documentIdForSdk);
+    });
+    if (found) {
+      return { spaceId, node: found };
+    }
   } catch {
     // Skip spaces that fail to list.
   }
@@ -912,21 +907,15 @@ async function waitForDriveFolderBrowserNode(
     }
 
     try {
-      let cursor: string | null = null;
-      do {
-        const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
-          cursor,
-          fresh: attempt > 0 && !cursor,
-        });
-        const found = page.items.find(
-          (candidate) =>
-            candidate.driveNodeId === driveNodeId || candidate.id === driveNodeId,
-        );
-        if (found) {
-          return found;
-        }
-        cursor = page.hasMore ? page.nextCursor : null;
-      } while (cursor);
+      const found = await scanKnowledgeBrowserNodes(
+        spaceId,
+        (candidate) =>
+          candidate.driveNodeId === driveNodeId || candidate.id === driveNodeId,
+        { fresh: attempt > 0 },
+      );
+      if (found) {
+        return found;
+      }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
     }

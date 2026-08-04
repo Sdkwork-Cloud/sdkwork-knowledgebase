@@ -40,11 +40,11 @@
     },
     {
       "path": "package.json",
-      "sha256": "1042ee2f5e5e688cc39dcaab9d4ca5975ada3275920b80d71c80c3f3348e085f"
+      "sha256": "8fc622918eec10951917d2151c8b4aa5f7a5ee75fd7620b67b7ca7b70438e264"
     },
     {
       "path": "README.md",
-      "sha256": "af79c746bc2d75cc2721410b921dfbd3b2789f6ffe5a26460903fa04b7367b38"
+      "sha256": "7d967ab224656985d8bc0db21e62dcddd66572d63eeabd95844de3c4fabf8ab1"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "9583f732514d4ed58870384d3edb51c41fe8b486732a2fca866598a3391b45dc"
+      "sha256": "f3ddcb1cd43c325a737f5ceaa8c142b43c523e6db223a629f139cdce3c807eda"
     },
     {
       "path": "src/api/paths.ts",
@@ -143,8 +143,16 @@
       "sha256": "df70e331e6bff0817bc35428286fa8de5d7274ab83a6c60d7184759bf680a088"
     },
     {
+      "path": "src/types/group-knowledgebase-launch-capability.ts",
+      "sha256": "06bc561b2e4b6156c25b6126011466dfbd7c9058644cd8d4ea1d97a7b35d856e"
+    },
+    {
+      "path": "src/types/group-launch-capability-response.ts",
+      "sha256": "6748ca00b00b1a16e7e423def2b6399ee6c24335c9df01983b1304376057c180"
+    },
+    {
       "path": "src/types/index.ts",
-      "sha256": "033ae5eb23ed8654e10ec9fd3e1b3856311f506fa297acc86909eec3284b9f57"
+      "sha256": "d8e46515757864ff52a3c9fdc754152eb07c641a5b970cb4faebed0bd956657c"
     },
     {
       "path": "src/types/indexes-create-response201.ts",

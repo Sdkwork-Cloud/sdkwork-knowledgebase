@@ -43,6 +43,7 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
         worker_id: &str,
         lease_duration: Duration,
         limit: u32,
+        max_attempts: u32,
     ) -> Result<IngestionJobWorkerBatchResult, KnowledgeIngestionJobWorkerServiceError> {
         let jobs = self
             .jobs
@@ -50,6 +51,7 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
                 claim_owner: worker_id.to_string(),
                 lease_duration,
                 limit,
+                max_attempts,
             })
             .await
             .map_err(KnowledgeIngestionJobWorkerServiceError::Store)?;

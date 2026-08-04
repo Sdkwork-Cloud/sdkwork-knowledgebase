@@ -1,4 +1,4 @@
-use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
+use sdkwork_knowledgebase_agent_provider::CloudRouterEmbeddingClient;
 use thiserror::Error;
 
 use crate::knowledge_embedding_index::{
@@ -10,13 +10,13 @@ use crate::ports::knowledge_embedding_store::{
 
 pub struct KnowledgeEmbeddingBuildService<'a> {
     embeddings: &'a dyn KnowledgeEmbeddingStore,
-    embedder: ClawRouterEmbeddingClient,
+    embedder: CloudRouterEmbeddingClient,
 }
 
 impl<'a> KnowledgeEmbeddingBuildService<'a> {
     pub fn new(
         embeddings: &'a dyn KnowledgeEmbeddingStore,
-        embedder: ClawRouterEmbeddingClient,
+        embedder: CloudRouterEmbeddingClient,
     ) -> Self {
         Self {
             embeddings,
