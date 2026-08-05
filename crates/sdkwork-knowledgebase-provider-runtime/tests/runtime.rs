@@ -16,6 +16,12 @@ use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
 fn test_config(server: &MockServer) -> ProviderRuntimeConfig {
+    // Wiremock fixtures run on loopback; the provider SSRF protection fails closed unless
+    // this explicit test-only allowance is set. Never set it in a deployed environment.
+    std::env::set_var(
+        "SDKWORK_KNOWLEDGEBASE_PROVIDER_RUNTIME_ALLOW_LOOPBACK",
+        "1",
+    );
     let mut config = ProviderRuntimeConfig::for_base_url_with_policy(
         &server.uri(),
         ProviderTargetPolicy::Development,

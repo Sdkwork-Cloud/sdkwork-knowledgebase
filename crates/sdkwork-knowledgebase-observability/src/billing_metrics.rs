@@ -6,6 +6,7 @@ static RETRIEVALS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static CONTEXT_PACKS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static INGEST_JOBS_SUCCEEDED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static INGEST_JOBS_FAILED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static EMBEDDING_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
 /// Records a completed knowledge retrieval suitable for usage-based billing.
 pub fn record_retrieval_completed(tenant_id: u64, result_count: u32, latency_ms: u64) {
@@ -55,6 +56,19 @@ pub fn record_ingest_job_failed(tenant_id: u64, job_id: u64, space_id: u64) {
     );
 }
 
+/// Records a post-ingest embedding failure so silently unindexed documents stay
+/// observable instead of leaving `index_state: Pending` without a trace.
+pub fn record_embedding_failed(tenant_id: u64, space_id: u64, document_version_id: u64) {
+    EMBEDDING_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    tracing::warn!(
+        billing_event = "knowledge.embedding.failed",
+        tenant_id,
+        space_id,
+        document_version_id,
+        "post-ingest embedding failed; document version remains unindexed until a rebuild"
+    );
+}
+
 pub fn render_billing_prometheus_metrics() -> String {
     format!(
         "# HELP knowledge_retrievals_total Completed knowledge retrieval operations.\n\
@@ -68,11 +82,15 @@ pub fn render_billing_prometheus_metrics() -> String {
          knowledge_ingest_jobs_succeeded_total {}\n\
          # HELP knowledge_ingest_jobs_failed_total Failed ingest job terminal states.\n\
          # TYPE knowledge_ingest_jobs_failed_total counter\n\
-         knowledge_ingest_jobs_failed_total {}\n",
+         knowledge_ingest_jobs_failed_total {}\n\
+         # HELP knowledge_embedding_failures_total Post-ingest embedding failures.\n\
+         # TYPE knowledge_embedding_failures_total counter\n\
+         knowledge_embedding_failures_total {}\n",
         RETRIEVALS_TOTAL.load(Ordering::Relaxed),
         CONTEXT_PACKS_TOTAL.load(Ordering::Relaxed),
         INGEST_JOBS_SUCCEEDED_TOTAL.load(Ordering::Relaxed),
         INGEST_JOBS_FAILED_TOTAL.load(Ordering::Relaxed),
+        EMBEDDING_FAILURES_TOTAL.load(Ordering::Relaxed),
     )
 }
 
@@ -85,10 +103,12 @@ mod tests {
         record_retrieval_completed(9001, 3, 42);
         record_context_pack_completed(9001, 512, false);
         record_ingest_job_succeeded(9001, 10, 20);
+        record_embedding_failed(9001, 20, 7);
         let body = render_billing_prometheus_metrics();
         assert!(body.contains("knowledge_retrievals_total"));
         assert!(body.contains("knowledge_context_packs_total"));
         assert!(body.contains("knowledge_ingest_jobs_succeeded_total"));
         assert!(body.contains("knowledge_ingest_jobs_failed_total"));
+        assert!(body.contains("knowledge_embedding_failures_total"));
     }
 }

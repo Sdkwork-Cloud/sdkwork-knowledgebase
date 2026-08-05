@@ -112,6 +112,8 @@ pub struct BindKnowledgeDriveSpaceRecord {
 pub enum KnowledgeSpaceStoreError {
     #[error("knowledge space store conflict: {0}")]
     Conflict(String),
+    #[error("knowledge space was not found: {0}")]
+    NotFound(String),
     #[error("knowledge space store internal error: {0}")]
     Internal(String),
 }

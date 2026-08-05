@@ -13,9 +13,9 @@ serde_json.workspace = true
 sdkwork-utils-rust.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync", "time", "net"] }
 tracing = "0.1"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
 wiremock.workspace = true

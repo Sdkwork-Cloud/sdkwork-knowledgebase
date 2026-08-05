@@ -9,8 +9,8 @@ pub use audit::{
 };
 pub mod billing_metrics;
 pub use billing_metrics::{
-    record_context_pack_completed, record_ingest_job_failed, record_ingest_job_succeeded,
-    record_retrieval_completed,
+    record_context_pack_completed, record_embedding_failed, record_ingest_job_failed,
+    record_ingest_job_succeeded, record_retrieval_completed,
 };
 pub mod environment;
 pub use environment::{

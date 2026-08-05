@@ -5,10 +5,15 @@ use sdkwork_utils_rust::{
     MAX_LIST_PAGE_SIZE,
 };
 
-pub fn normalize_page_size(page_size: Option<u32>) -> u32 {
-    page_size
-        .unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32)
-        .clamp(1, MAX_LIST_PAGE_SIZE as u32)
+/// Validates an optional `page_size` against the canonical 1..=200 range. Out-of-range
+/// values are rejected (not silently clamped) so backend pagination semantics match the
+/// app API surface exactly.
+pub fn normalize_page_size(page_size: Option<u32>) -> Result<u32, SdkWorkResultCode> {
+    let page_size = page_size.unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32);
+    if !(1..=MAX_LIST_PAGE_SIZE as u32).contains(&page_size) {
+        return Err(SdkWorkResultCode::InvalidParameter);
+    }
+    Ok(page_size)
 }
 
 pub fn parse_u64_cursor(cursor: Option<&str>) -> Result<Option<u64>, SdkWorkResultCode> {

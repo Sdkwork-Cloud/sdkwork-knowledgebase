@@ -51,9 +51,17 @@ pub async fn connect_postgres_via_framework_lifecycle(
     let pool = crate::db::bootstrap::connect_knowledgebase_pool_from_url(database_url)
         .await
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))?;
-    bootstrap_knowledgebase_database(pool)
+    bootstrap_knowledgebase_database(pool.clone())
         .await
         .map_err(PostgresRepositoryError::Sqlx)?;
+    // The bootstrap pool is a one-shot startup cost: in processes without a process-shared
+    // pool (application public ingress) it is closed right after migration so the
+    // `SDKWORK_DATABASE_MAX_CONNECTIONS` budget is shared only by the business AnyPool and
+    // the Drive pool. Processes that enabled the shared pool (worker, internal RPC) keep it
+    // because it is the framework-wide shared pool handle.
+    if !sdkwork_database_sqlx::process_shared_database_pool_enabled() {
+        pool.close().await;
+    }
     crate::db::bootstrap::connect_knowledgebase_any_pool_from_url(database_url)
         .await
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))

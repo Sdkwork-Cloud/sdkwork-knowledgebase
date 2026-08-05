@@ -1771,22 +1771,71 @@ impl KnowledgebaseRuntime {
             resolve_cloud_router_client_from_env, CloudRouterEmbeddingClient,
         };
 
-        let client = resolve_cloud_router_client_from_env().ok()?;
-        let index = self
+        // Failures must never be silent: an unindexed document version is a data-quality
+        // incident for retrieval. Every failure below records a metric and an error log so
+        // operators can reconcile `index_state: Pending` documents with a rebuild.
+        let client = match resolve_cloud_router_client_from_env() {
+            Ok(client) => client,
+            Err(reason) => {
+                tracing::warn!(
+                    tenant_id = self.tenant_id,
+                    space_id,
+                    document_version_id,
+                    error = %reason,
+                    "post-ingest embedding skipped: cloud-router client unavailable"
+                );
+                return None;
+            }
+        };
+        let index = match self
             .index_store()
             .get_or_create_active_vector_index(space_id, 0)
             .await
-            .ok()?;
+        {
+            Ok(index) => index,
+            Err(error) => {
+                tracing::warn!(
+                    tenant_id = self.tenant_id,
+                    space_id,
+                    document_version_id,
+                    error = %error,
+                    "post-ingest embedding failed: cannot resolve active vector index"
+                );
+                sdkwork_knowledgebase_observability::record_embedding_failed(
+                    self.tenant_id,
+                    space_id,
+                    document_version_id,
+                );
+                return None;
+            }
+        };
         let embedder = CloudRouterEmbeddingClient::new(Arc::new(client));
         let service = KnowledgePostIngestEmbeddingService::new(
             self.chunk_store(),
             self.embedding_store(),
             embedder,
         );
-        service
+        match service
             .embed_document_version(self.tenant_id, &index, document_version_id)
             .await
-            .ok()
+        {
+            Ok(count) => Some(count),
+            Err(error) => {
+                tracing::warn!(
+                    tenant_id = self.tenant_id,
+                    space_id,
+                    document_version_id,
+                    error = %error,
+                    "post-ingest embedding failed; document version remains unindexed until a rebuild"
+                );
+                sdkwork_knowledgebase_observability::record_embedding_failed(
+                    self.tenant_id,
+                    space_id,
+                    document_version_id,
+                );
+                None
+            }
+        }
     }
 
     pub async fn publish_pending_outbox_events(

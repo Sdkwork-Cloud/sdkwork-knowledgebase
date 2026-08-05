@@ -13,10 +13,13 @@ use thiserror::Error;
 
 pub const MAX_WIKI_BACKFILL_PAGE_SIZE: u32 = 200;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunWikiPublicationBackfillRequest {
     pub scope: WikiPersistenceScope,
     pub after_space_id: Option<u64>,
+    /// Space ids currently in backoff cooldown; candidates in this set are skipped for this page
+    /// so a persistently failing space can never stall the rest of the backfill domain.
+    pub excluded_space_ids: Vec<u64>,
     pub page_size: u32,
     pub actor_id: u64,
     pub dry_run: bool,
@@ -40,6 +43,8 @@ pub struct WikiPublicationBackfillOutcome {
 pub struct WikiPublicationBackfillPageResult {
     pub outcomes: Vec<WikiPublicationBackfillOutcome>,
     pub next_after_space_id: Option<u64>,
+    /// True when at least one candidate failed on this page. Failure no longer stops the page:
+    /// the cursor keeps advancing and the caller applies cooldown backoff per failed space.
     pub stopped_on_failure: bool,
 }
 
@@ -66,7 +71,7 @@ impl<'a> KnowledgeWikiBackfillService<'a> {
         &self,
         request: RunWikiPublicationBackfillRequest,
     ) -> Result<WikiPublicationBackfillPageResult, KnowledgeWikiBackfillError> {
-        validate_request(request)?;
+        validate_request(&request)?;
         let page = self
             .backfill_store
             .list_backfill_candidates(ListWikiPublicationBackfillCandidatesRequest {
@@ -77,10 +82,11 @@ impl<'a> KnowledgeWikiBackfillService<'a> {
             .await?;
 
         let mut outcomes = Vec::with_capacity(page.candidates.len());
-        let mut resume_after_space_id = request.after_space_id;
         for candidate in page.candidates {
+            if request.excluded_space_ids.contains(&candidate.space_id) {
+                continue;
+            }
             if request.dry_run {
-                resume_after_space_id = Some(candidate.space_id);
                 outcomes.push(outcome(
                     candidate.space_id,
                     WikiPublicationBackfillDisposition::Planned,
@@ -89,9 +95,11 @@ impl<'a> KnowledgeWikiBackfillService<'a> {
                 continue;
             }
 
-            match self.initialize_candidate(request, &candidate).await {
+            // A failing candidate must not stall the domain: the cursor keeps advancing so the
+            // remaining candidates are processed, and the caller's cooldown table retries the
+            // failed space with exponential backoff on a later full scan.
+            match self.initialize_candidate(&request, &candidate).await {
                 Ok(()) => {
-                    resume_after_space_id = Some(candidate.space_id);
                     outcomes.push(outcome(
                         candidate.space_id,
                         WikiPublicationBackfillDisposition::Initialized,
@@ -102,32 +110,30 @@ impl<'a> KnowledgeWikiBackfillService<'a> {
                     tracing::warn!(
                         knowledge_space_id = candidate.space_id,
                         error = %error,
-                        "Wiki publication backfill stopped before advancing its resume cursor"
+                        "Wiki publication backfill candidate failed; continuing with remaining candidates"
                     );
                     outcomes.push(outcome(
                         candidate.space_id,
                         WikiPublicationBackfillDisposition::Failed,
                         Some(error.code()),
                     ));
-                    return Ok(WikiPublicationBackfillPageResult {
-                        outcomes,
-                        next_after_space_id: resume_after_space_id,
-                        stopped_on_failure: true,
-                    });
                 }
             }
         }
 
+        let stopped_on_failure = outcomes
+            .iter()
+            .any(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Failed);
         Ok(WikiPublicationBackfillPageResult {
             outcomes,
             next_after_space_id: page.next_after_space_id,
-            stopped_on_failure: false,
+            stopped_on_failure,
         })
     }
 
     async fn initialize_candidate(
         &self,
-        request: RunWikiPublicationBackfillRequest,
+        request: &RunWikiPublicationBackfillRequest,
         candidate: &WikiPublicationBackfillCandidate,
     ) -> Result<(), KnowledgeWikiBackfillItemError> {
         self.publication_store
@@ -153,7 +159,7 @@ impl<'a> KnowledgeWikiBackfillService<'a> {
 }
 
 fn validate_request(
-    request: RunWikiPublicationBackfillRequest,
+    request: &RunWikiPublicationBackfillRequest,
 ) -> Result<(), KnowledgeWikiBackfillError> {
     if request.scope.tenant_id == 0 || request.actor_id == 0 {
         return Err(KnowledgeWikiBackfillError::InvalidRequest(

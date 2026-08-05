@@ -13,7 +13,7 @@ use sdkwork_knowledgebase_contract::provider_binding::{
 use sdkwork_utils_rust::{is_blank, SDKWORK_TRACE_ID_HEADER};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use tokio::sync::Semaphore;
+use tokio::sync::{OnceCell, Semaphore};
 
 use crate::telemetry::default_telemetry;
 use crate::{
@@ -362,7 +362,11 @@ struct CircuitState {
 
 #[derive(Clone)]
 pub struct ProviderRuntime {
-    client: Client,
+    /// Lazily built HTTP client whose target host is DNS-resolved, validated as public,
+    /// and pinned, so a rebinding DNS record cannot redirect provider traffic into an
+    /// internal network after validation.
+    client: OnceCell<Result<Client, ProviderError>>,
+    base_url: Url,
     config: ProviderRuntimeConfig,
     concurrency: Arc<Semaphore>,
     circuit: Arc<Mutex<CircuitState>>,
@@ -376,14 +380,9 @@ impl ProviderRuntime {
 
     pub fn new(config: ProviderRuntimeConfig) -> Result<Self, ProviderError> {
         config.validate()?;
-        let client = Client::builder()
-            .connect_timeout(config.connect_timeout)
-            .timeout(config.request_timeout)
-            .pool_idle_timeout(Duration::from_secs(90))
-            .pool_max_idle_per_host(config.max_concurrency)
-            .redirect(reqwest::redirect::Policy::none())
-            .user_agent("sdkwork-knowledgebase-provider-runtime/0.1")
-            .build()
+        let base_url = config
+            .allowed_origin
+            .to_url()
             .map_err(|_| {
                 ProviderError::new(
                     ProviderErrorCategory::Internal,
@@ -393,11 +392,12 @@ impl ProviderRuntime {
                     None,
                     false,
                     None,
-                    "provider HTTP client construction failed",
+                    "provider origin URL cannot be reconstructed",
                 )
             })?;
         Ok(Self {
-            client,
+            client: OnceCell::new(),
+            base_url,
             concurrency: Arc::new(Semaphore::new(config.max_concurrency)),
             circuit: Arc::new(Mutex::new(CircuitState::default())),
             telemetry: default_telemetry(),
@@ -408,6 +408,17 @@ impl ProviderRuntime {
     pub fn with_telemetry(mut self, telemetry: Arc<dyn ProviderTelemetry>) -> Self {
         self.telemetry = telemetry;
         self
+    }
+
+    async fn pinned_client(&self) -> Result<&Client, ProviderError> {
+        let cell = self
+            .client
+            .get_or_init(|| build_pinned_client(&self.base_url, &self.config));
+        let result = cell.await;
+        match result {
+            Ok(client) => Ok(client),
+            Err(error) => Err(error.clone()),
+        }
     }
 
     pub async fn execute(
@@ -552,6 +563,7 @@ impl ProviderRuntime {
         request: &ProviderHttpRequest,
         max_response_bytes: usize,
     ) -> Result<ProviderHttpResponse, ProviderError> {
+        let client = self.pinned_client().await?;
         let mut headers = request.headers.clone();
         if !is_blank(Some(context.trace_id.as_str())) {
             if let (Ok(name), Ok(value)) = (
@@ -561,8 +573,7 @@ impl ProviderRuntime {
                 headers.insert(name, value);
             }
         }
-        let mut builder = self
-            .client
+        let mut builder = client
             .request(request.method.clone(), request.url.clone())
             .headers(headers);
         if let Some(body) = request.body.clone() {
@@ -865,4 +876,40 @@ fn parse_retry_after(value: Option<&HeaderValue>) -> Option<Duration> {
     }
     let retry_at = httpdate::parse_http_date(value).ok()?;
     retry_at.duration_since(SystemTime::now()).ok()
+}
+
+/// Builds the reqwest client for one provider origin with DNS validation and socket
+/// pinning: the origin hostname is resolved, every address is required to be public,
+/// and the validated socket is pinned on the client so a later DNS rebinding cannot
+/// redirect provider traffic into an internal network.
+async fn build_pinned_client(
+    base_url: &Url,
+    config: &ProviderRuntimeConfig,
+) -> Result<Client, ProviderError> {
+    let socket = crate::target_security::resolve_public_socket_addr(base_url, config.connect_timeout)
+        .await?;
+    let mut builder = Client::builder()
+        .connect_timeout(config.connect_timeout)
+        .timeout(config.request_timeout)
+        .pool_idle_timeout(Duration::from_secs(90))
+        .pool_max_idle_per_host(config.max_concurrency)
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent("sdkwork-knowledgebase-provider-runtime/0.1");
+    if let Some(host) = base_url.host_str() {
+        if host.parse::<std::net::IpAddr>().is_err() {
+            builder = builder.resolve(host, socket);
+        }
+    }
+    builder.build().map_err(|_| {
+        ProviderError::new(
+            ProviderErrorCategory::Internal,
+            ProviderOperation::Health,
+            "unresolved",
+            None,
+            None,
+            false,
+            None,
+            "provider HTTP client construction failed",
+        )
+    })
 }

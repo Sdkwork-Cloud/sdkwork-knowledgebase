@@ -173,6 +173,9 @@ pub fn build_business_router_with_shared_backend_api(
             paths::COMPLIANCE_AUDIT_EVENTS_ANONYMIZE,
             post(handlers::anonymize_audit_subject),
         )
+        // Explicit transport-level request body bound (1 MiB): backend payloads are bounded
+        // small DTOs; reject oversized bodies before JSON deserialization.
+        .layer(axum::extract::DefaultBodyLimit::max(1_048_576))
         .with_state(state)
 }
 

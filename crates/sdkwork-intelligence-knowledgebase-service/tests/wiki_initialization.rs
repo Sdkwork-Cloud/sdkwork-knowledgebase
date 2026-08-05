@@ -54,7 +54,7 @@ async fn initialization_ensures_canonical_raw_scope_and_checkpoint() {
 }
 
 #[tokio::test]
-async fn backfill_stops_before_advancing_past_a_failed_candidate() {
+async fn backfill_skips_failed_candidate_without_stalling_remaining_candidates() {
     let persistence = MemoryWikiPersistence::default();
     let drive_scope = FixedDriveScope {
         fail_for_drive: Some("drive-502".to_string()),
@@ -70,6 +70,7 @@ async fn backfill_stops_before_advancing_past_a_failed_candidate() {
         .run_page(RunWikiPublicationBackfillRequest {
             scope: SCOPE,
             after_space_id: Some(500),
+            excluded_space_ids: Vec::new(),
             page_size: 10,
             actor_id: 9001,
             dry_run: false,
@@ -77,9 +78,12 @@ async fn backfill_stops_before_advancing_past_a_failed_candidate() {
         .await
         .expect("run bounded backfill page");
 
+    // The failing candidate (502) reports a failure but does not block 503: the whole page
+    // is consumed, and the domain is restarted from the beginning on the next full scan with
+    // the failed space held in caller-side cooldown.
     assert!(result.stopped_on_failure);
-    assert_eq!(result.next_after_space_id, Some(501));
-    assert_eq!(result.outcomes.len(), 2);
+    assert_eq!(result.next_after_space_id, None);
+    assert_eq!(result.outcomes.len(), 3);
     assert_eq!(
         result.outcomes[0].disposition,
         WikiPublicationBackfillDisposition::Initialized
@@ -87,6 +91,47 @@ async fn backfill_stops_before_advancing_past_a_failed_candidate() {
     assert_eq!(
         result.outcomes[1].disposition,
         WikiPublicationBackfillDisposition::Failed
+    );
+    assert_eq!(
+        result.outcomes[2].disposition,
+        WikiPublicationBackfillDisposition::Initialized
+    );
+    assert_eq!(persistence.provision_count(), 3);
+}
+
+#[tokio::test]
+async fn backfill_skips_candidates_in_cooldown() {
+    let persistence = MemoryWikiPersistence::default();
+    let drive_scope = FixedDriveScope::default();
+    let initializer =
+        KnowledgeWikiInitializationService::new(&persistence, &persistence, &drive_scope);
+    let candidates = FixedBackfillStore {
+        candidates: vec![candidate(501), candidate(502), candidate(503)],
+    };
+    let service = KnowledgeWikiBackfillService::new(&candidates, &persistence, &initializer);
+
+    let result = service
+        .run_page(RunWikiPublicationBackfillRequest {
+            scope: SCOPE,
+            after_space_id: Some(500),
+            excluded_space_ids: vec![502],
+            page_size: 10,
+            actor_id: 9001,
+            dry_run: false,
+        })
+        .await
+        .expect("run bounded backfill page");
+
+    assert!(!result.stopped_on_failure);
+    assert_eq!(result.next_after_space_id, None);
+    assert_eq!(result.outcomes.len(), 2);
+    assert_eq!(
+        result.outcomes[0].disposition,
+        WikiPublicationBackfillDisposition::Initialized
+    );
+    assert_eq!(
+        result.outcomes[1].disposition,
+        WikiPublicationBackfillDisposition::Initialized
     );
     assert_eq!(persistence.provision_count(), 2);
 }
@@ -106,6 +151,7 @@ async fn dry_run_reports_without_mutating_publication_or_drive() {
         .run_page(RunWikiPublicationBackfillRequest {
             scope: SCOPE,
             after_space_id: None,
+            excluded_space_ids: Vec::new(),
             page_size: 10,
             actor_id: 9001,
             dry_run: true,

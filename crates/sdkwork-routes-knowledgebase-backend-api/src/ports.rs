@@ -59,7 +59,16 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
             legacy.items,
             None,
             false,
-            crate::pagination::normalize_page_size(page_size),
+            crate::pagination::normalize_page_size(page_size).map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?,
         ))
     }
 
@@ -99,7 +108,16 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
             legacy.items,
             None,
             false,
-            crate::pagination::normalize_page_size(page_size),
+            crate::pagination::normalize_page_size(page_size).map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?,
         ))
     }
 
@@ -206,7 +224,16 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
             legacy.items,
             None,
             false,
-            crate::pagination::normalize_page_size(page_size),
+            crate::pagination::normalize_page_size(page_size).map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?,
         ))
     }
 
@@ -242,7 +269,16 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
             legacy.items,
             None,
             false,
-            crate::pagination::normalize_page_size(page_size),
+            crate::pagination::normalize_page_size(page_size).map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?,
         ))
     }
 
@@ -309,7 +345,16 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
             legacy.items,
             None,
             false,
-            crate::pagination::normalize_page_size(page_size),
+            crate::pagination::normalize_page_size(page_size).map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?,
         ))
     }
 

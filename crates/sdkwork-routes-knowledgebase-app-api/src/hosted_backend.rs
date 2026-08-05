@@ -746,17 +746,15 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .index_store()
             .get_index(index_id)
             .await
-            .map_err(|error| {
-                let detail = error.to_string();
-                if detail.contains("missing knowledge index") {
-                    BackendApiError::new(
-                        axum::http::StatusCode::NOT_FOUND,
-                        "knowledge_index_not_found",
-                        detail,
-                    )
-                } else {
-                    map_internal(detail)
-                }
+            .map_err(|error| match error {
+                sdkwork_intelligence_knowledgebase_repository_sqlx::KnowledgeIndexStoreError::NotFound(
+                    detail,
+                ) => BackendApiError::new(
+                    axum::http::StatusCode::NOT_FOUND,
+                    "knowledge_index_not_found",
+                    detail,
+                ),
+                other => map_internal(other.to_string()),
             })
     }
 

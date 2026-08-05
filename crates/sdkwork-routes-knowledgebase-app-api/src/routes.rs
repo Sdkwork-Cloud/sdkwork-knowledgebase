@@ -289,6 +289,10 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
             delete(delete_market_subscription),
         )
         .route(paths::MEDIA_TASKS, post(create_media_task))
+        // Explicit transport-level request body bound: the largest business payload is the
+        // 512 KiB markdown ingest envelope, so 1 MiB leaves envelope and encoding headroom
+        // while rejecting oversized bodies before JSON deserialization.
+        .layer(axum::extract::DefaultBodyLimit::max(1_048_576))
         .with_state(AppState { api })
 }
 

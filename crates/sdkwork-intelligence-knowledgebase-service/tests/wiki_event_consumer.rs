@@ -332,6 +332,51 @@ async fn checkpoint_page_processes_multiple_checkpoints_and_returns_keyset_curso
 }
 
 #[tokio::test]
+async fn checkpoint_page_reports_blocked_cursor_for_checkpoint_with_retried_events() {
+    let persistence = FakePersistence::with_checkpoints(vec![
+        checkpoint_with_id(701),
+        checkpoint_with_id(702),
+        checkpoint_with_id(703),
+    ]);
+    // Drive is down: the event on checkpoint 701 retries and parks the checkpoint out of
+    // catch-up, so the consumer cursor must not advance past it.
+    let drive = FakeDriveSource::failure(KnowledgeWikiDriveSourceError::Upstream(
+        "temporary Drive outage".to_string(),
+    ));
+    let consumer = service(&persistence, &drive);
+    consumer
+        .receive_trusted(receive_request(eligibility_event(
+            1,
+            DriveNodeEligibility::Eligible,
+            "RESTORED",
+        )))
+        .await
+        .expect("receive event");
+
+    let page = consumer
+        .process_checkpoint_page(ProcessKnowledgeWikiDriveCheckpointPageRequest {
+            scope: SCOPE,
+            after_checkpoint_id: None,
+            worker_id: "wiki-worker-blocked".to_string(),
+            actor_id: 9001,
+            lease_seconds: 60,
+            checkpoint_limit: 10,
+            event_limit_per_checkpoint: 10,
+            retry_delay_seconds: 30,
+            max_attempts: 3,
+        })
+        .await
+        .expect("process checkpoint page");
+
+    assert_eq!(page.blocked_checkpoint_id, Some(701));
+    assert_eq!(page.events.retried, 1);
+    assert_eq!(page.events.applied, 0);
+    // The page-level keyset still reports the tail for progress accounting; the caller
+    // must prefer `blocked_checkpoint_id` when deciding where to resume.
+    assert_eq!(page.next_after_checkpoint_id, None);
+}
+
+#[tokio::test]
 async fn drive_resolution_failure_retries_without_applying_or_advancing() {
     let persistence = FakePersistence::new();
     let drive = FakeDriveSource::failure(KnowledgeWikiDriveSourceError::Upstream(
@@ -357,10 +402,10 @@ async fn tampered_inbox_payload_hash_retries_without_applying() {
     let drive = FakeDriveSource::success(resolved_source("guide/start.md", "version-1"));
     let consumer = service(&persistence, &drive);
     consumer
-        .receive_trusted(receive_request(version_event(
+        .receive_trusted(receive_request(eligibility_event(
             1,
-            SOURCE_SCOPE_ID,
-            "guide/start.md",
+            DriveNodeEligibility::Eligible,
+            "RESTORED",
         )))
         .await
         .expect("receive event");

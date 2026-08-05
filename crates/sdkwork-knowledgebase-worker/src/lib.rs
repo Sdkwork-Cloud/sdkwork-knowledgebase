@@ -66,6 +66,7 @@ pub struct MaintenanceConfig {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MaintenanceTickState {
     pub wiki_checkpoint_cursor: Option<u64>,
+    pub wiki_source_cursor: Option<u64>,
     pub wiki_delivery_cursor: Option<u64>,
     pub renew_wiki_event_deliveries: bool,
 }
@@ -90,6 +91,8 @@ pub struct MaintenanceTickResult {
     pub group_archives_processed: usize,
     pub wiki_publications_initialized: usize,
     pub wiki_publications_failed: usize,
+    pub wiki_backfill_next_after_space_id: Option<u64>,
+    pub wiki_backfill_failed_space_ids: Vec<u64>,
     pub wiki_drive_outbox_events_processed: usize,
     pub wiki_drive_outbox_events_delivered: usize,
     pub wiki_drive_outbox_events_failed: usize,
@@ -105,6 +108,8 @@ pub struct MaintenanceTickResult {
     pub wiki_sources_quarantined: usize,
     pub wiki_auto_publications_deferred: usize,
     pub wiki_drive_next_after_checkpoint_id: Option<u64>,
+    pub wiki_drive_blocked_checkpoint_id: Option<u64>,
+    pub wiki_drive_source_next_after_checkpoint_id: Option<u64>,
     pub wiki_drive_event_deliveries_renewed: usize,
     pub wiki_drive_event_delivery_relays_verified: usize,
     pub wiki_drive_event_delivery_failures: usize,
@@ -133,7 +138,7 @@ enum PhaseResult {
     Ingestion(usize),
     ProviderMigration(ProviderMigrationBatchResult),
     GroupArchives(usize),
-    WikiBackfill((usize, usize)),
+    WikiBackfill(WikiBackfillPhaseResult),
     WikiDriveRelay(DomainOutboxDispatchResult),
     WikiDrive(KnowledgeWikiDriveCheckpointPageResult),
     WikiSources(KnowledgeWikiSourceCheckpointPageResult),
@@ -143,6 +148,29 @@ enum PhaseResult {
 }
 
 type PhaseHandle = tokio::task::JoinHandle<Result<PhaseResult, MaintenanceTickError>>;
+
+/// Outcome of one wiki backfill phase invocation, including the resume cursor and the
+/// per-space outcome lists the maintenance loop uses for exponential-backoff cooldown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WikiBackfillPhaseResult {
+    pub initialized: usize,
+    pub failed: usize,
+    pub next_after_space_id: Option<u64>,
+    pub failed_space_ids: Vec<u64>,
+    pub succeeded_space_ids: Vec<u64>,
+}
+
+/// In-memory cooldown state for a persistently failing backfill candidate. Cooldown is
+/// process-local: with multiple worker replicas each replica keeps its own backoff clock,
+/// which is safe because retries are idempotent provisioning operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WikiBackfillCooldown {
+    failures: u32,
+    retry_after: std::time::Instant,
+}
+
+const WIKI_BACKFILL_COOLDOWN_BASE_SECS: u64 = 30;
+const WIKI_BACKFILL_COOLDOWN_MAX_SECS: u64 = 3_600;
 
 /// In-flight handles for phases that exceeded their budget on a previous tick.
 /// At most one instance of every phase may run at any time.
@@ -283,9 +311,17 @@ async fn run_group_archive_phase(
 async fn run_wiki_backfill_phase(
     runtime: &KnowledgebaseRuntime,
     config: &MaintenanceConfig,
-) -> Result<(usize, usize), MaintenanceTickError> {
+    after_space_id: Option<u64>,
+    excluded_space_ids: Vec<u64>,
+) -> Result<WikiBackfillPhaseResult, MaintenanceTickError> {
     let Some(config) = config.wiki_backfill else {
-        return Ok((0, 0));
+        return Ok(WikiBackfillPhaseResult {
+            initialized: 0,
+            failed: 0,
+            next_after_space_id: None,
+            failed_space_ids: Vec::new(),
+            succeeded_space_ids: Vec::new(),
+        });
     };
     if config.tenant_id == 0
         || config.actor_id == 0
@@ -303,7 +339,8 @@ async fn run_wiki_backfill_phase(
                 tenant_id: config.tenant_id,
                 organization_id: config.organization_id,
             },
-            after_space_id: None,
+            after_space_id,
+            excluded_space_ids,
             page_size: config.page_size,
             actor_id: config.actor_id,
             dry_run: false,
@@ -320,7 +357,74 @@ async fn run_wiki_backfill_phase(
         .iter()
         .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Failed)
         .count();
-    Ok((initialized, failed))
+    let failed_space_ids = result
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Failed)
+        .map(|outcome| outcome.space_id)
+        .collect();
+    let succeeded_space_ids = result
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Initialized)
+        .map(|outcome| outcome.space_id)
+        .collect();
+    Ok(WikiBackfillPhaseResult {
+        initialized,
+        failed,
+        next_after_space_id: result.next_after_space_id,
+        failed_space_ids,
+        succeeded_space_ids,
+    })
+}
+
+/// Returns the space ids currently in backoff cooldown. Failed candidates rejoin the
+/// candidate scan only after `30s * 2^failures` capped at 1h, so a permanently failing
+/// space cannot be hammered every tick nor stall the rest of the domain.
+fn wiki_backfill_cooldown_backoff(failures: u32) -> std::time::Duration {
+    let exponent = failures.saturating_sub(1).min(7);
+    let secs = WIKI_BACKFILL_COOLDOWN_BASE_SECS.saturating_mul(1_u64 << exponent);
+    std::time::Duration::from_secs(secs.min(WIKI_BACKFILL_COOLDOWN_MAX_SECS))
+}
+
+fn active_backfill_cooldown_space_ids(
+    cooldowns: &std::collections::HashMap<u64, WikiBackfillCooldown>,
+) -> Vec<u64> {
+    let now = std::time::Instant::now();
+    cooldowns
+        .iter()
+        .filter(|(_, cooldown)| cooldown.retry_after > now)
+        .map(|(space_id, _)| *space_id)
+        .collect()
+}
+
+fn update_backfill_cooldowns(
+    cooldowns: &mut std::collections::HashMap<u64, WikiBackfillCooldown>,
+    backfill: &WikiBackfillPhaseResult,
+) {
+    // A space that finally initialized leaves the cooldown table; its retry counter is
+    // reset naturally by removal.
+    for space_id in &backfill.succeeded_space_ids {
+        cooldowns.remove(space_id);
+    }
+    // Failed spaces accumulate their attempt count across cooldown periods so the backoff
+    // really doubles; an expired cooldown only re-admits the candidate, it never resets
+    // the exponential schedule.
+    let now = std::time::Instant::now();
+    for space_id in &backfill.failed_space_ids {
+        let next_failures = cooldowns
+            .get(space_id)
+            .map(|cooldown| cooldown.failures.saturating_add(1))
+            .unwrap_or(1);
+        let retry_after = now + wiki_backfill_cooldown_backoff(next_failures);
+        cooldowns.insert(
+            *space_id,
+            WikiBackfillCooldown {
+                failures: next_failures,
+                retry_after,
+            },
+        );
+    }
 }
 
 async fn run_wiki_drive_relay_phase(
@@ -482,8 +586,7 @@ pub async fn run_maintenance_tick(
     let ingestion_jobs_processed = run_ingestion_phase(runtime, config).await?;
     let provider_migrations = run_provider_migration_phase(runtime, config).await?;
     let group_archives_processed = run_group_archive_phase(runtime, config).await;
-    let (wiki_publications_initialized, wiki_publications_failed) =
-        run_wiki_backfill_phase(runtime, config).await?;
+    let wiki_backfill = run_wiki_backfill_phase(runtime, config, None, Vec::new()).await?;
     let wiki_drive_relay_result = run_wiki_drive_relay_phase(runtime).await?;
     let wiki_drive_result = run_wiki_drive_phase(
         runtime,
@@ -496,7 +599,7 @@ pub async fn run_maintenance_tick(
         runtime,
         &config.worker_id,
         config.wiki_drive_events,
-        state.wiki_checkpoint_cursor,
+        state.wiki_source_cursor,
     )
     .await?;
     let wiki_delivery_result = run_wiki_delivery_phase(
@@ -518,8 +621,10 @@ pub async fn run_maintenance_tick(
         provider_migrations_rolled_back: provider_migrations.rolled_back,
         provider_migrations_failed: provider_migrations.failed,
         group_archives_processed,
-        wiki_publications_initialized,
-        wiki_publications_failed,
+        wiki_publications_initialized: wiki_backfill.initialized,
+        wiki_publications_failed: wiki_backfill.failed,
+        wiki_backfill_next_after_space_id: wiki_backfill.next_after_space_id,
+        wiki_backfill_failed_space_ids: wiki_backfill.failed_space_ids,
         wiki_drive_outbox_events_processed: wiki_drive_relay_result.processed,
         wiki_drive_outbox_events_delivered: wiki_drive_relay_result.delivered,
         wiki_drive_outbox_events_failed: wiki_drive_relay_result.failed,
@@ -535,6 +640,8 @@ pub async fn run_maintenance_tick(
         wiki_sources_quarantined: wiki_source_result.sources_quarantined,
         wiki_auto_publications_deferred: wiki_source_result.auto_publications_deferred,
         wiki_drive_next_after_checkpoint_id: wiki_drive_result.next_after_checkpoint_id,
+        wiki_drive_blocked_checkpoint_id: wiki_drive_result.blocked_checkpoint_id,
+        wiki_drive_source_next_after_checkpoint_id: wiki_source_result.next_after_checkpoint_id,
         wiki_drive_event_deliveries_renewed: wiki_delivery_result.cloud_deliveries_renewed,
         wiki_drive_event_delivery_relays_verified: wiki_delivery_result.embedded_relays_verified,
         wiki_drive_event_delivery_failures: wiki_delivery_result.failures.len(),
@@ -558,6 +665,9 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let phase_budget = config.maintenance.phase_timeout;
     let mut wiki_checkpoint_cursor = None;
+    let mut wiki_source_cursor = None;
+    let mut wiki_backfill_cursor = None;
+    let mut wiki_backfill_cooldowns = std::collections::HashMap::new();
     let mut wiki_delivery_cursor = None;
     let renewal_interval = std::time::Duration::from_secs(
         std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_DELIVERY_RENEWAL_INTERVAL_SECONDS")
@@ -637,15 +747,21 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                 }
 
                 // 4. wiki backfill
-                if let Some(PhaseResult::WikiBackfill((initialized, failed))) = drive_phase(4, phase_budget, &mut phases.wiki_backfill, {
+                if let Some(PhaseResult::WikiBackfill(backfill)) = drive_phase(4, phase_budget, &mut phases.wiki_backfill, {
                     let runtime = runtime.clone();
                     let maintenance = maintenance.clone();
-                    || tokio::spawn(async move {
-                        run_wiki_backfill_phase(&runtime, &maintenance).await.map(PhaseResult::WikiBackfill)
+                    let after_space_id = wiki_backfill_cursor;
+                    let excluded_space_ids = active_backfill_cooldown_space_ids(&wiki_backfill_cooldowns);
+                    move || tokio::spawn(async move {
+                        run_wiki_backfill_phase(&runtime, &maintenance, after_space_id, excluded_space_ids)
+                            .await.map(PhaseResult::WikiBackfill)
                     })
                 }).await {
-                    result.wiki_publications_initialized = initialized;
-                    result.wiki_publications_failed = failed;
+                    update_backfill_cooldowns(&mut wiki_backfill_cooldowns, &backfill);
+                    result.wiki_publications_initialized = backfill.initialized;
+                    result.wiki_publications_failed = backfill.failed;
+                    result.wiki_backfill_next_after_space_id = backfill.next_after_space_id;
+                    result.wiki_backfill_failed_space_ids = backfill.failed_space_ids;
                 }
 
                 // 5. wiki drive relay
@@ -664,10 +780,11 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                 if let Some(PhaseResult::WikiDrive(drive)) = drive_phase(6, phase_budget, &mut phases.wiki_drive_events, {
                     let runtime = runtime.clone();
                     let maintenance = maintenance.clone();
+                    let after_checkpoint_id = wiki_checkpoint_cursor;
                     move || tokio::spawn(async move {
                         let worker_id = maintenance.worker_id.clone();
                         let wiki_drive_events = maintenance.wiki_drive_events;
-                        run_wiki_drive_phase(&runtime, &worker_id, wiki_drive_events, wiki_checkpoint_cursor)
+                        run_wiki_drive_phase(&runtime, &worker_id, wiki_drive_events, after_checkpoint_id)
                             .await.map(PhaseResult::WikiDrive)
                     })
                 }).await {
@@ -677,16 +794,18 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                     result.wiki_drive_events_dead_lettered = drive.events.dead_lettered;
                     result.wiki_drive_public_changes = drive.events.public_changes;
                     result.wiki_drive_next_after_checkpoint_id = drive.next_after_checkpoint_id;
+                    result.wiki_drive_blocked_checkpoint_id = drive.blocked_checkpoint_id;
                 }
 
                 // 7. wiki sources
                 if let Some(PhaseResult::WikiSources(sources)) = drive_phase(7, phase_budget, &mut phases.wiki_sources, {
                     let runtime = runtime.clone();
                     let maintenance = maintenance.clone();
+                    let after_checkpoint_id = wiki_source_cursor;
                     move || tokio::spawn(async move {
                         let worker_id = maintenance.worker_id.clone();
                         let wiki_drive_events = maintenance.wiki_drive_events;
-                        run_wiki_source_phase(&runtime, &worker_id, wiki_drive_events, wiki_checkpoint_cursor)
+                        run_wiki_source_phase(&runtime, &worker_id, wiki_drive_events, after_checkpoint_id)
                             .await.map(PhaseResult::WikiSources)
                     })
                 }).await {
@@ -696,6 +815,7 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                     result.wiki_sources_retried = sources.sources_retried;
                     result.wiki_sources_quarantined = sources.sources_quarantined;
                     result.wiki_auto_publications_deferred = sources.auto_publications_deferred;
+                    result.wiki_drive_source_next_after_checkpoint_id = sources.next_after_checkpoint_id;
                 }
 
                 // 8. wiki delivery renewal
@@ -714,8 +834,28 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                     result.wiki_drive_next_after_event_delivery_checkpoint_id = delivery.next_after_checkpoint_id;
                 }
 
-                if let Some(next) = result.wiki_drive_next_after_checkpoint_id {
+                if let Some(blocked) = result.wiki_drive_blocked_checkpoint_id {
+                    // A checkpoint with retried head events is not caught up; the exclusive
+                    // cursor must restart at it so its RETRY events are repicked at deadline.
+                    // Later checkpoints on the page were still processed (progress), but the
+                    // cursor parks at the blocked checkpoint to preserve retry ordering.
+                    wiki_checkpoint_cursor = Some(blocked.saturating_sub(1));
+                } else if let Some(next) = result.wiki_drive_next_after_checkpoint_id {
                     wiki_checkpoint_cursor = Some(next);
+                } else {
+                    wiki_checkpoint_cursor = None;
+                }
+                if let Some(next) = result.wiki_drive_source_next_after_checkpoint_id {
+                    wiki_source_cursor = Some(next);
+                } else {
+                    wiki_source_cursor = None;
+                }
+                if let Some(next) = result.wiki_backfill_next_after_space_id {
+                    wiki_backfill_cursor = Some(next);
+                } else {
+                    // Full scan completed (or page is empty): next tick restarts from the
+                    // beginning so newly provisioned spaces are discovered.
+                    wiki_backfill_cursor = None;
                 }
                 if let Some(next) = result.wiki_drive_next_after_event_delivery_checkpoint_id {
                     wiki_delivery_cursor = Some(next);
@@ -795,7 +935,73 @@ fn maintenance_tick_has_activity(result: &MaintenanceTickResult) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::MaintenanceTickResult;
+    use super::{
+        active_backfill_cooldown_space_ids, update_backfill_cooldowns,
+        wiki_backfill_cooldown_backoff, MaintenanceTickResult, WikiBackfillCooldown,
+        WikiBackfillPhaseResult,
+    };
+    use std::collections::HashMap;
+
+    #[test]
+    fn backfill_cooldown_backoff_doubles_up_to_cap() {
+        assert_eq!(
+            wiki_backfill_cooldown_backoff(1),
+            std::time::Duration::from_secs(30)
+        );
+        assert_eq!(
+            wiki_backfill_cooldown_backoff(2),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            wiki_backfill_cooldown_backoff(8),
+            std::time::Duration::from_secs(3_600)
+        );
+        assert_eq!(
+            wiki_backfill_cooldown_backoff(100),
+            std::time::Duration::from_secs(3_600)
+        );
+    }
+
+    #[test]
+    fn backfill_cooldown_excludes_active_and_accumulates_failures() {
+        let mut cooldowns = HashMap::new();
+        cooldowns.insert(
+            501,
+            WikiBackfillCooldown {
+                failures: 1,
+                retry_after: std::time::Instant::now()
+                    + std::time::Duration::from_secs(60),
+            },
+        );
+        cooldowns.insert(
+            502,
+            WikiBackfillCooldown {
+                failures: 3,
+                retry_after: std::time::Instant::now()
+                    - std::time::Duration::from_secs(1),
+            },
+        );
+        let active = active_backfill_cooldown_space_ids(&cooldowns);
+        assert_eq!(active, vec![501]);
+        assert_eq!(cooldowns.len(), 2);
+
+        // 502 re-fails after its cooldown expired: the counter keeps climbing (4th failure)
+        // instead of resetting, so the exponential schedule really doubles. 503 succeeds and
+        // is removed from the table entirely.
+        update_backfill_cooldowns(
+            &mut cooldowns,
+            &WikiBackfillPhaseResult {
+                initialized: 1,
+                failed: 1,
+                next_after_space_id: None,
+                failed_space_ids: vec![502],
+                succeeded_space_ids: vec![503],
+            },
+        );
+        assert_eq!(cooldowns.len(), 2);
+        assert_eq!(cooldowns.get(&502).map(|state| state.failures), Some(4));
+        assert_eq!(cooldowns.get(&503), None);
+    }
 
     #[test]
     fn maintenance_tick_result_tracks_worker_outputs() {
@@ -812,6 +1018,8 @@ mod tests {
             group_archives_processed: 4,
             wiki_publications_initialized: 6,
             wiki_publications_failed: 1,
+            wiki_backfill_next_after_space_id: Some(11),
+            wiki_backfill_failed_space_ids: vec![12],
             wiki_drive_outbox_events_processed: 4,
             wiki_drive_outbox_events_delivered: 3,
             wiki_drive_outbox_events_failed: 1,
@@ -827,6 +1035,8 @@ mod tests {
             wiki_sources_quarantined: 1,
             wiki_auto_publications_deferred: 1,
             wiki_drive_next_after_checkpoint_id: Some(9),
+            wiki_drive_blocked_checkpoint_id: Some(8),
+            wiki_drive_source_next_after_checkpoint_id: Some(7),
             wiki_drive_event_deliveries_renewed: 1,
             wiki_drive_event_delivery_relays_verified: 0,
             wiki_drive_event_delivery_failures: 0,
@@ -859,6 +1069,10 @@ mod tests {
         assert_eq!(result.wiki_sources_quarantined, 1);
         assert_eq!(result.wiki_auto_publications_deferred, 1);
         assert_eq!(result.wiki_drive_next_after_checkpoint_id, Some(9));
+        assert_eq!(result.wiki_drive_blocked_checkpoint_id, Some(8));
+        assert_eq!(result.wiki_drive_source_next_after_checkpoint_id, Some(7));
+        assert_eq!(result.wiki_backfill_next_after_space_id, Some(11));
+        assert_eq!(result.wiki_backfill_failed_space_ids, vec![12]);
         assert_eq!(result.wiki_drive_event_deliveries_renewed, 1);
         assert_eq!(result.wiki_drive_event_delivery_relays_verified, 0);
         assert_eq!(result.wiki_drive_event_delivery_failures, 0);

@@ -54,6 +54,10 @@ pub fn build_business_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>
         .route(paths::DOCUMENTS, get(list_documents))
         .route(paths::DOCUMENT, get(retrieve_document))
         .route(paths::SPACE_BROWSER, get(list_browser))
+        // Explicit transport-level request body bound: the largest Open API payload is the
+        // 512 KiB markdown ingest envelope, so 1 MiB leaves headroom while rejecting
+        // oversized bodies before JSON deserialization.
+        .layer(axum::extract::DefaultBodyLimit::max(1_048_576))
         .with_state(OpenState { api })
 }
 

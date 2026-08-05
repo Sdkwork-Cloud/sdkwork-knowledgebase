@@ -303,28 +303,29 @@ impl<'a> KnowledgeSpaceService<'a> {
             .await
             .map_err(KnowledgeSpaceServiceError::Store)?;
 
-        if let Some(access) = self.access_control {
-            let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
-                KnowledgeSpaceServiceError::AccessDenied(format!(
-                    "space {space_id} is not bound to a drive space for access control"
-                ))
-            })?;
-            let grant = access
-                .check_space_access(
-                    crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
-                        tenant_id: tenant_id.to_string(),
-                        actor_id: actor_id.to_string(),
-                        drive_space_id: drive_space_id.clone(),
-                        required_role,
-                    },
-                )
-                .await
-                .map_err(KnowledgeSpaceServiceError::AccessControl)?;
-            if !grant.allowed {
-                return Err(KnowledgeSpaceServiceError::AccessDenied(format!(
-                    "actor {actor_id} does not have access to space {space_id}"
-                )));
-            }
+        // Read paths are fail-closed: without a configured access control the operation is
+        // rejected instead of silently degrading to tenant-scoped visibility only.
+        let access = self.require_access_control()?;
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::AccessDenied(format!(
+                "space {space_id} is not bound to a drive space for access control"
+            ))
+        })?;
+        let grant = access
+            .check_space_access(
+                crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
+                    tenant_id: tenant_id.to_string(),
+                    actor_id: actor_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    required_role,
+                },
+            )
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)?;
+        if !grant.allowed {
+            return Err(KnowledgeSpaceServiceError::AccessDenied(format!(
+                "actor {actor_id} does not have access to space {space_id}"
+            )));
         }
 
         Ok(space)

@@ -44,10 +44,10 @@ use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 use crate::{
     hosted_access::{
         create_space_with_context, delete_space_with_context, ensure_runtime_tenant,
-        grant_space_member_with_context, list_space_members_with_context, require_document_access,
-        require_document_access_with_role, require_ingest_access, require_okf_concept_space_access,
-        require_okf_concept_space_access_with_role, require_space_access,
-        require_space_access_with_role, revoke_space_member_with_context,
+        grant_space_member_with_context, list_space_members_with_context, require_actor_id,
+        require_document_access, require_document_access_with_role, require_ingest_access,
+        require_okf_concept_space_access, require_okf_concept_space_access_with_role,
+        require_space_access, require_space_access_with_role, revoke_space_member_with_context,
         update_space_with_context,
     },
     hosted_support::{
@@ -189,8 +189,10 @@ impl KnowledgeIngestAppService for HostedIngestService {
             .await
             .map_err(ApiError::from)?;
         if let Some(document_version_id) = result.document_version_id {
-            let _ = self
-                .runtime
+            // Fire-and-forget by design: the API response is the persisted ingest job, not the
+            // async index build. `try_embed_document_version` records metrics and error logs on
+            // every failure so unindexed documents remain observable and reconcilable.
+            self.runtime
                 .try_embed_document_version(space_id, document_version_id)
                 .await;
         }
@@ -248,8 +250,9 @@ impl KnowledgeDriveImportAppService for HostedDriveImportService {
         match pipeline.process_drive_import_result(&result).await {
             Ok(pipeline_result) => {
                 if let Some(index_result) = pipeline_result.index_result {
-                    let _ = self
-                        .runtime
+                    // Fire-and-forget: failures are recorded inside `try_embed_document_version`
+                    // (metric + error log) so unindexed versions stay observable.
+                    self.runtime
                         .try_embed_document_version(
                             result.document.space_id,
                             index_result.document_version_id,
@@ -302,8 +305,9 @@ impl KnowledgeGitImportAppService for HostedGitImportService {
             .await
             .map_err(ApiError::from)?;
         for document_version_id in run.document_version_ids {
-            let _ = self
-                .runtime
+            // Fire-and-forget: failures are recorded inside `try_embed_document_version`
+            // (metric + error log) so unindexed versions stay observable.
+            self.runtime
                 .try_embed_document_version(space_id, document_version_id)
                 .await;
         }
@@ -653,10 +657,9 @@ impl KnowledgeBrowserApi for HostedBrowserService {
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserListData> {
         ensure_runtime_tenant(&self.runtime, &context)?;
-        let actor_id = context
-            .actor_id
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "anonymous".to_string());
+        // Fail-closed: an anonymous browser identity must never reach the browser service, or a
+        // missing actor would bypass per-actor ACL checks.
+        let actor_id = require_actor_id(&context)?;
         let service = KnowledgeBrowserService::new(
             self.runtime.space_store(),
             self.runtime.drive_tree(),

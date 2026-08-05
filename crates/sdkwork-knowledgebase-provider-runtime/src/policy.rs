@@ -64,6 +64,12 @@ impl ProviderOrigin {
         }
         Ok(())
     }
+
+    /// Reconstructs the canonical origin URL for DNS resolution and socket pinning.
+    pub(crate) fn to_url(&self) -> Result<Url, ProviderError> {
+        Url::parse(&format!("{}://{}:{}", self.scheme, self.host, self.port))
+            .map_err(|_| target_error("provider origin URL cannot be reconstructed"))
+    }
 }
 
 fn validate_url_shape(url: &Url, policy: ProviderTargetPolicy) -> Result<(), ProviderError> {

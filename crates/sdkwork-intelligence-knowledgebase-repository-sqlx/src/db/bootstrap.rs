@@ -214,11 +214,45 @@ async fn connect_knowledgebase_any_pool_from_config(
     config: DatabaseConfig,
 ) -> Result<AnyPool, PoolError> {
     sqlx::any::install_default_drivers();
+    // The Any compatibility pool must honor the same TLS policy as the typed pool: when the
+    // URL carries no sslmode and `SDKWORK_DATABASE_SSL_MODE` (or the resolved default) is
+    // stricter than the sqlx default (`prefer`), the mode is materialized into the URL so a
+    // misconfigured plaintext fallback is impossible.
+    let url = if config.engine == DatabaseEngine::Postgres {
+        ensure_url_ssl_mode(&config.url, config.postgres.ssl_mode)?
+    } else {
+        config.url
+    };
     sqlx::any::AnyPoolOptions::new()
         .max_connections(config.max_connections)
-        .connect(&config.url)
+        .acquire_timeout(std::time::Duration::from_secs(10))
+        .connect(&url)
         .await
         .map_err(PoolError::from)
+}
+
+/// Appends `sslmode=<mode>` to a PostgreSQL URL when it does not already declare one, so
+/// connection pools built from raw URLs (Any driver) cannot silently fall back to plaintext.
+fn ensure_url_ssl_mode(database_url: &str, mode: PgSslMode) -> Result<String, PoolError> {
+    let mut url = Url::parse(database_url)
+        .map_err(|error| PoolError::InvalidUrl(format!("invalid PostgreSQL URL: {error}")))?;
+    if url
+        .query_pairs()
+        .any(|(key, _)| key.eq_ignore_ascii_case("sslmode"))
+    {
+        return Ok(url.into());
+    }
+    let mode_name = match mode {
+        PgSslMode::Disable => "disable",
+        PgSslMode::Allow => "allow",
+        PgSslMode::Prefer => "prefer",
+        PgSslMode::Require => "require",
+        PgSslMode::VerifyCa => "verify-ca",
+        PgSslMode::VerifyFull => "verify-full",
+    };
+    url.query_pairs_mut()
+        .append_pair("sslmode", mode_name);
+    Ok(url.into())
 }
 
 pub async fn connect_knowledgebase_pool_from_env() -> Result<KnowledgebaseDatabasePool, PoolError> {
@@ -293,8 +327,8 @@ pub async fn create_and_bootstrap_knowledgebase_database_pool_from_env(
 #[cfg(test)]
 mod tests {
     use super::{
-        postgres_url_with_deployment_scope, process_pool_budget, resolve_postgres_ssl_mode,
-        KnowledgebaseProcessPoolBudget,
+        ensure_url_ssl_mode, postgres_url_with_deployment_scope, process_pool_budget,
+        resolve_postgres_ssl_mode, KnowledgebaseProcessPoolBudget,
     };
     use sdkwork_database_config::{DatabaseEngine, PgSslMode};
     use url::Url;
@@ -387,5 +421,37 @@ mod tests {
         )
         .expect_err("duplicate options must fail closed");
         assert!(error.to_string().contains("duplicate options"));
+    }
+
+    #[test]
+    fn any_pool_url_materializes_ssl_mode_when_absent() {
+        let configured =
+            ensure_url_ssl_mode("postgresql://app@localhost/kb", PgSslMode::VerifyFull)
+                .expect("SSL mode materialized");
+        let parsed = Url::parse(&configured).expect("valid URL");
+        assert_eq!(
+            parsed
+                .query_pairs()
+                .find(|(key, _)| key == "sslmode")
+                .map(|(_, value)| value.into_owned())
+                .as_deref(),
+            Some("verify-full")
+        );
+    }
+
+    #[test]
+    fn any_pool_url_preserves_explicit_ssl_mode() {
+        let configured =
+            ensure_url_ssl_mode("postgresql://app@localhost/kb?sslmode=require", PgSslMode::Disable)
+                .expect("explicit mode preserved");
+        let parsed = Url::parse(&configured).expect("valid URL");
+        assert_eq!(
+            parsed
+                .query_pairs()
+                .find(|(key, _)| key == "sslmode")
+                .map(|(_, value)| value.into_owned())
+                .as_deref(),
+            Some("require")
+        );
     }
 }

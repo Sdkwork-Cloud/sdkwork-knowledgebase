@@ -9,7 +9,7 @@ mod adapters;
 mod agent_chat_runtime;
 mod auth;
 pub mod bootstrap;
-#[cfg(debug_assertions)]
+#[cfg(feature = "dev-auth")]
 pub mod dev_auth;
 mod error;
 pub mod hosted;

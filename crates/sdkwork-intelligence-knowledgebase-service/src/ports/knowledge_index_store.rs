@@ -15,6 +15,8 @@ pub trait KnowledgeIndexStore: Send + Sync {
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeIndexStoreError {
+    #[error("knowledge index was not found: {0}")]
+    NotFound(String),
     #[error("knowledge index store internal error: {0}")]
     Internal(String),
 }

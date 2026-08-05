@@ -20,6 +20,8 @@ const DEFAULT_SCHEMA_VERSION: &str = "2026-06-01";
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeIndexStoreError {
+    #[error("knowledge index was not found: {0}")]
+    NotFound(String),
     #[error("knowledge index store internal error: {0}")]
     Internal(String),
 }
@@ -142,7 +144,7 @@ impl SqliteKnowledgeIndexStore {
         .await
         .map_err(sqlx_error)?
         .ok_or_else(|| {
-            KnowledgeIndexStoreError::Internal(format!("missing knowledge index: {index_id}"))
+            KnowledgeIndexStoreError::NotFound(format!("knowledge index {index_id} was not found"))
         })?;
 
         index_from_row(&row)

@@ -136,6 +136,11 @@ pub struct KnowledgeWikiDriveCheckpointPageResult {
     pub checkpoints_processed: usize,
     pub events: KnowledgeWikiDriveEventBatchResult,
     pub next_after_checkpoint_id: Option<u64>,
+    /// First checkpoint on this page whose event stream is not caught up (a head event is
+    /// parked in RETRY and blocks later sequence numbers). The consumer cursor must not
+    /// advance past it: retries are repicked at their `next_retry_at` deadline and the
+    /// cursor stays put until the stream is caught up or the event dead-letters.
+    pub blocked_checkpoint_id: Option<u64>,
 }
 
 pub struct KnowledgeWikiDriveEventConsumerService<'a> {
@@ -380,6 +385,12 @@ impl<'a> KnowledgeWikiDriveEventConsumerService<'a> {
             result.events.retried += batch.retried;
             result.events.dead_lettered += batch.dead_lettered;
             result.events.public_changes += batch.public_changes;
+            // A retried head event parks this checkpoint out of catch-up; record the first
+            // blocked checkpoint so the caller's cursor cannot skip past its retries. Dead
+            // letter is terminal and does not block.
+            if batch.retried > 0 && result.blocked_checkpoint_id.is_none() {
+                result.blocked_checkpoint_id = Some(checkpoint.id);
+            }
         }
         Ok(result)
     }

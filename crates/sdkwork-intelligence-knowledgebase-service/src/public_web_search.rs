@@ -13,6 +13,12 @@ const MAX_QUERY_LEN: usize = 256;
 /// Cap on provider response bodies so a misbehaving DuckDuckGo/searxng
 /// instance cannot exhaust process memory.
 const MAX_PUBLIC_SEARCH_RESPONSE_BYTES: usize = 512 * 1024;
+/// Total request budget (DNS, connect, TLS, response) for provider calls so a
+/// hung upstream can never pin a retrieval/agent-chat task or DB connection.
+const PUBLIC_SEARCH_TIMEOUT_SECS: u64 = 10;
+/// Connect-phase budget, bounded below the total budget to keep DNS/TCP stalls
+/// from consuming the whole request allowance.
+const PUBLIC_SEARCH_CONNECT_TIMEOUT_SECS: u64 = 5;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublicWebSearchHit {
@@ -105,6 +111,15 @@ fn configured_searxng_base_url() -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn public_search_http_client() -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(PUBLIC_SEARCH_TIMEOUT_SECS))
+        .connect_timeout(std::time::Duration::from_secs(
+            PUBLIC_SEARCH_CONNECT_TIMEOUT_SECS,
+        ))
+        .build()
+}
+
 async fn search_via_duckduckgo(
     query: &str,
     top_k: usize,
@@ -113,7 +128,8 @@ async fn search_via_duckduckgo(
         "https://api.duckduckgo.com/?q={}&format=json&no_redirect=1&no_html=1",
         urlencoding::encode(query)
     );
-    let response = reqwest::Client::new()
+    let response = public_search_http_client()
+        .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?
         .get(endpoint)
         .header(reqwest::header::USER_AGENT, "sdkwork-knowledgebase/0.1")
         .send()
@@ -149,7 +165,8 @@ async fn search_via_searxng(
         "{base_url}/search?format=json&q={}",
         urlencoding::encode(query)
     );
-    let response = reqwest::Client::new()
+    let response = public_search_http_client()
+        .map_err(|error| PublicWebSearchError::Provider(error.to_string()))?
         .get(endpoint)
         .header(reqwest::header::USER_AGENT, "sdkwork-knowledgebase/0.1")
         .send()

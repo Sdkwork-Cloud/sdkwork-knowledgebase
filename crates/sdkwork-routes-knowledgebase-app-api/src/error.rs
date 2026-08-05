@@ -348,12 +348,11 @@ impl From<KnowledgeSpaceStoreError> for ApiError {
             KnowledgeSpaceStoreError::Conflict(detail) => {
                 Self::conflict("knowledge_space_conflict", detail)
             }
+            KnowledgeSpaceStoreError::NotFound(detail) => {
+                Self::not_found("knowledge_space_not_found", detail)
+            }
             KnowledgeSpaceStoreError::Internal(detail) => {
-                if detail.contains("missing knowledge space") {
-                    Self::not_found("knowledge_space_not_found", detail)
-                } else {
-                    Self::internal("knowledge_space_store_failed", detail)
-                }
+                Self::internal("knowledge_space_store_failed", detail)
             }
         }
     }
@@ -534,6 +533,10 @@ impl From<KnowledgeBrowserServiceError> for ApiError {
                 "knowledge_browser_access_denied",
                 detail,
             ),
+            KnowledgeBrowserServiceError::AccessControlNotConfigured => Self::internal(
+                "knowledge_browser_access_control_not_configured",
+                "knowledge browser access control is not configured",
+            ),
             KnowledgeBrowserServiceError::SpaceStore(error) => Self::from(error),
             KnowledgeBrowserServiceError::DriveTree(error) => {
                 Self::internal("knowledge_browser_drive_tree_failed", error.to_string())
@@ -573,12 +576,11 @@ impl From<KnowledgeDocumentStoreError> for ApiError {
             KnowledgeDocumentStoreError::QuotaExceeded(error) => {
                 crate::tenant_quota_enforcement::map_tenant_quota_error(error)
             }
+            KnowledgeDocumentStoreError::NotFound(detail) => {
+                Self::not_found("knowledge_document_not_found", detail)
+            }
             KnowledgeDocumentStoreError::Internal(detail) => {
-                if detail.contains("missing knowledge document") {
-                    Self::not_found("knowledge_document_not_found", detail)
-                } else {
-                    Self::internal("knowledge_document_store_failed", detail)
-                }
+                Self::internal("knowledge_document_store_failed", detail)
             }
         }
     }

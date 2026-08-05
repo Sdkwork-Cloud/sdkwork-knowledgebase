@@ -72,32 +72,35 @@ impl<'a> KnowledgeBrowserService<'a> {
         }
 
         let space = self.spaces.get_space(request.space_id).await?;
-        if let Some(access_control) = self.access_control {
-            let access = access.ok_or_else(|| {
-                KnowledgeBrowserServiceError::InvalidRequest(
-                    "authenticated browser access context is required".to_string(),
-                )
-            })?;
-            let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
-                KnowledgeBrowserServiceError::InvalidRequest(
-                    "drive space is not bound for knowledge space".to_string(),
-                )
-            })?;
-            let grant = access_control
-                .check_space_access(KnowledgeAccessCheckRequest {
-                    tenant_id: access.tenant_id.to_string(),
-                    actor_id: access.actor_id,
-                    drive_space_id: drive_space_id.clone(),
-                    required_role: KnowledgeAccessRole::Reader,
-                })
-                .await
-                .map_err(KnowledgeBrowserServiceError::AccessControl)?;
-            if !grant.allowed {
-                return Err(KnowledgeBrowserServiceError::AccessDenied(format!(
-                    "actor does not have access to space {}",
-                    request.space_id
-                )));
-            }
+        // Fail-closed: browsing without a configured access control is rejected instead of
+        // silently degrading to tenant-scoped visibility only.
+        let access_control = self.access_control.ok_or_else(|| {
+            KnowledgeBrowserServiceError::AccessControlNotConfigured
+        })?;
+        let access = access.ok_or_else(|| {
+            KnowledgeBrowserServiceError::InvalidRequest(
+                "authenticated browser access context is required".to_string(),
+            )
+        })?;
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeBrowserServiceError::InvalidRequest(
+                "drive space is not bound for knowledge space".to_string(),
+            )
+        })?;
+        let grant = access_control
+            .check_space_access(KnowledgeAccessCheckRequest {
+                tenant_id: access.tenant_id.to_string(),
+                actor_id: access.actor_id,
+                drive_space_id: drive_space_id.clone(),
+                required_role: KnowledgeAccessRole::Reader,
+            })
+            .await
+            .map_err(KnowledgeBrowserServiceError::AccessControl)?;
+        if !grant.allowed {
+            return Err(KnowledgeBrowserServiceError::AccessDenied(format!(
+                "actor does not have access to space {}",
+                request.space_id
+            )));
         }
         let drive_space_id = space.drive_space_id.clone().ok_or_else(|| {
             KnowledgeBrowserServiceError::InvalidRequest(
@@ -412,6 +415,8 @@ pub enum KnowledgeBrowserServiceError {
     InvalidRequest(String),
     #[error("knowledge browser access denied: {0}")]
     AccessDenied(String),
+    #[error("knowledge browser access control is not configured")]
+    AccessControlNotConfigured,
     #[error(transparent)]
     AccessControl(#[from] KnowledgeAccessControlError),
     #[error(transparent)]

@@ -46,6 +46,11 @@ time.workspace = true
 uuid.workspace = true
 url = "2"
 
+[features]
+# Development-only unauthenticated auth middlewares. Compiled only when explicitly
+# requested; never enabled in release/deployment builds.
+dev-auth = []
+
 [dev-dependencies]
 async-trait.workspace = true
 tokio.workspace = true

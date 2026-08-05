@@ -85,6 +85,8 @@ pub enum KnowledgeDocumentStoreError {
     Unsupported(String),
     #[error(transparent)]
     QuotaExceeded(#[from] TenantQuotaExceeded),
+    #[error("knowledge document was not found: {0}")]
+    NotFound(String),
     #[error("knowledge document store internal error: {0}")]
     Internal(String),
 }

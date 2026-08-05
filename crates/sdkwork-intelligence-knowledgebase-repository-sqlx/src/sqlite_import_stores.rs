@@ -834,7 +834,7 @@ impl SqliteKnowledgeDocumentStore {
         .map_err(|error| {
             if matches!(error, sqlx::Error::RowNotFound) {
                 KnowledgeDocumentStoreError::Internal(format!(
-                    "missing knowledge document: {document_id}"
+                    "knowledge document {document_id} was not found"
                 ))
             } else {
                 document_sqlx_error(error)
@@ -892,7 +892,7 @@ impl SqliteKnowledgeDocumentStore {
             .map_err(|error| {
                 if matches!(error, sqlx::Error::RowNotFound) {
                     KnowledgeDocumentStoreError::Internal(format!(
-                        "missing knowledge document: {document_id}"
+                        "knowledge document {document_id} was not found"
                     ))
                 } else {
                     document_sqlx_error(error)
@@ -930,7 +930,7 @@ impl SqliteKnowledgeDocumentStore {
 
         if rows.rows_affected() == 0 {
             return Err(KnowledgeDocumentStoreError::Internal(format!(
-                "missing knowledge document: {document_id}"
+                "knowledge document {document_id} was not found"
             )));
         }
         Ok(())

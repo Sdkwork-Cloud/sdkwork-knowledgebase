@@ -9,6 +9,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree
     KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
     ResolveKnowledgeDriveNodePathRequest,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::{
+    GrantKnowledgeSpaceAccessRequest, KnowledgeAccessControl, KnowledgeAccessCheckRequest,
+    KnowledgeAccessControlError, KnowledgeAccessGrant, KnowledgeNodeAccessCheckRequest,
+    KnowledgeSpaceMemberList, ListKnowledgeSpaceMembersRequest, RevokeKnowledgeSpaceAccessRequest,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
 };
@@ -72,11 +77,12 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
             index_state: "indexed".to_string(),
             okf_state: "candidate_ready".to_string(),
         }]);
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-raw-root".to_string()),
@@ -135,11 +141,12 @@ async fn browser_files_root_lists_original_files_under_okf_raw_sources() {
             index_state: "indexed".to_string(),
             okf_state: "candidate_ready".to_string(),
         }]);
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -181,11 +188,12 @@ async fn browser_files_root_returns_empty_page_when_okf_raw_source_root_is_missi
     }])
     .with_resolved_path("sources/raw", None);
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -222,11 +230,12 @@ async fn browser_rejects_files_parent_id_outside_okf_raw_sources() {
         object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-okf-root".to_string()),
@@ -261,11 +270,12 @@ async fn browser_files_root_keeps_drive_root_for_external_knowledge_spaces() {
     }])
     .expect_parent_id(None);
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -290,11 +300,12 @@ async fn browser_rejects_missing_files_parent_id() {
     let spaces = MemorySpaceStore::bound("drv-kb-001");
     let drive_tree = RecordingDriveTree::with_nodes(vec![]);
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("missing-parent".to_string()),
@@ -327,11 +338,12 @@ async fn browser_rejects_file_as_files_parent_id() {
         object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-pdf".to_string()),
@@ -357,11 +369,12 @@ async fn browser_caps_page_size_to_prevent_unbounded_directory_scans() {
         .with_resolved_path("sources/raw", Some("node-raw-root"))
         .expect_parent_id(Some("node-raw-root"));
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -402,11 +415,12 @@ async fn browser_okf_root_lists_children_under_okf_drive_folder() {
             current_revision_id: Some(34),
             publish_state: OkfConceptPublishState::Published,
         }]);
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -453,11 +467,12 @@ async fn browser_outputs_root_lists_children_under_standard_output_drive_folder(
     .with_resolved_path("output", Some("node-output-root"))
     .expect_parent_id(Some("node-output-root"));
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let page = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -509,11 +524,12 @@ async fn browser_rejects_okf_parent_id_outside_okf_drive_tree() {
         object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-sources-root".to_string()),
@@ -547,11 +563,12 @@ async fn browser_rejects_outputs_parent_id_outside_output_drive_tree_even_when_e
         object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-misc-root".to_string()),
@@ -573,11 +590,12 @@ async fn browser_rejects_spaces_without_drive_space_binding() {
     let spaces = MemorySpaceStore::unbound();
     let drive_tree = RecordingDriveTree::with_nodes(vec![]);
     let projections = RecordingProjectionStore::default();
-    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections)
+            .with_access_control(&PERMISSIVE_ACCESS_CONTROL);
 
     let error = service
         .list(
-            None,
+            Some(browser_access()),
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
@@ -845,6 +863,67 @@ impl KnowledgeBrowserProjectionStore for RecordingProjectionStore {
         *self.okf_calls.lock().unwrap() += 1;
         *self.requested_logical_paths.lock().unwrap() = logical_paths;
         Ok(self.okf_concepts.clone())
+    }
+}
+
+
+/// Permissive test double: browser tests exercise projection/keyset behavior, not ACL
+/// enforcement; fail-closed access-control configuration is covered by service tests.
+struct PermissiveKnowledgeAccessControl;
+
+#[async_trait]
+impl KnowledgeAccessControl for PermissiveKnowledgeAccessControl {
+    async fn check_space_access(
+        &self,
+        _request: KnowledgeAccessCheckRequest,
+    ) -> Result<KnowledgeAccessGrant, KnowledgeAccessControlError> {
+        Ok(KnowledgeAccessGrant {
+            allowed: true,
+            effective_role: None,
+        })
+    }
+
+    async fn check_node_access(
+        &self,
+        _request: KnowledgeNodeAccessCheckRequest,
+    ) -> Result<KnowledgeAccessGrant, KnowledgeAccessControlError> {
+        Ok(KnowledgeAccessGrant {
+            allowed: true,
+            effective_role: None,
+        })
+    }
+
+    async fn grant_space_access(
+        &self,
+        _request: GrantKnowledgeSpaceAccessRequest,
+    ) -> Result<(), KnowledgeAccessControlError> {
+        Ok(())
+    }
+
+    async fn revoke_space_access(
+        &self,
+        _request: RevokeKnowledgeSpaceAccessRequest,
+    ) -> Result<(), KnowledgeAccessControlError> {
+        Ok(())
+    }
+
+    async fn list_space_members(
+        &self,
+        _request: ListKnowledgeSpaceMembersRequest,
+    ) -> Result<KnowledgeSpaceMemberList, KnowledgeAccessControlError> {
+        Ok(KnowledgeSpaceMemberList {
+            members: Vec::new(),
+            next_cursor: None,
+        })
+    }
+}
+
+static PERMISSIVE_ACCESS_CONTROL: PermissiveKnowledgeAccessControl = PermissiveKnowledgeAccessControl;
+
+fn browser_access() -> sdkwork_intelligence_knowledgebase_service::browser::KnowledgeBrowserAccessContext {
+    sdkwork_intelligence_knowledgebase_service::browser::KnowledgeBrowserAccessContext {
+        tenant_id: 1,
+        actor_id: "actor-1".to_string(),
     }
 }
 

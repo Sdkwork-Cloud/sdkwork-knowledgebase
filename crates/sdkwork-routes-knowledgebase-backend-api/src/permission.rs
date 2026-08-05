@@ -10,7 +10,10 @@ pub fn can_access_knowledge_admin(context: &KnowledgeBackendRequestContext) -> b
 }
 
 fn is_knowledge_platform_manage_scope(scope: &str) -> bool {
-    scope == KNOWLEDGE_PLATFORM_MANAGE_PERMISSION || scope == "knowledge.*"
+    // Exact permission only: wildcard scopes would grant every backend administration
+    // capability (including credential rotation/revocation and audit export) to any
+    // principal holding a domain-level grant.
+    scope == KNOWLEDGE_PLATFORM_MANAGE_PERMISSION
 }
 
 #[cfg(test)]
@@ -40,9 +43,10 @@ mod tests {
     }
 
     #[test]
-    fn allows_knowledge_wildcard_permission() {
+    fn rejects_knowledge_wildcard_permission() {
+        // Least-privilege: a wildcard domain grant must not unlock backend administration.
         let context = context_with_scopes(&["knowledge.*"]);
-        assert!(can_access_knowledge_admin(&context));
+        assert!(!can_access_knowledge_admin(&context));
     }
 
     #[test]

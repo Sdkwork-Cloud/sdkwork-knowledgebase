@@ -3,6 +3,7 @@
 mod error;
 mod policy;
 mod runtime;
+mod target_security;
 mod telemetry;
 
 pub use error::ProviderError;

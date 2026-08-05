@@ -50,6 +50,7 @@ async fn run(arguments: impl IntoIterator<Item = String>) -> Result<bool, Backfi
                 organization_id: arguments.organization_id,
             },
             after_space_id: arguments.after_space_id,
+            excluded_space_ids: Vec::new(),
             page_size: arguments.page_size,
             actor_id: arguments.actor_id,
             dry_run: arguments.dry_run,
