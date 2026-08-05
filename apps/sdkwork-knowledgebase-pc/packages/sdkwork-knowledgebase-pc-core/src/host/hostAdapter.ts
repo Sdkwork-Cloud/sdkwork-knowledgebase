@@ -124,7 +124,7 @@ export function createHostAdapter(): HostAdapter {
     },
     async saveBinaryResource(suggestedName, bytes) {
       if (!isTauriDesktopRuntime()) {
-        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;

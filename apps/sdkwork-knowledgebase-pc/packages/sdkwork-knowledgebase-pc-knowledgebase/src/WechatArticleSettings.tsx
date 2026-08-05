@@ -6,7 +6,7 @@ import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc
 export interface WechatArticleSettingsProps extends ReactKeyedComponentProps {
   selectedArticle: WechatArticle;
   updateSelectedArticle: (updates: Partial<WechatArticle>) => void;
-  coverInputRef: React.RefObject<HTMLInputElement>;
+  coverInputRef: React.RefObject<HTMLInputElement | null>;
   handleCoverUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onSelectCoverFromBody: () => void;
   onSelectCoverFromGallery: () => void;

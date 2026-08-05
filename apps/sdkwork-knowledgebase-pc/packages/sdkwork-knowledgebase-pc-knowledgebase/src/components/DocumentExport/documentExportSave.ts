@@ -127,7 +127,7 @@ async function tryWebShareDownload(
   }
 
   try {
-    const file = new File([bytes], fileName, { type: mimeType });
+    const file = new File([bytes as BlobPart], fileName, { type: mimeType });
     if (typeof navigator.canShare === 'function' && !navigator.canShare({ files: [file] })) {
       return false;
     }
@@ -142,7 +142,7 @@ async function tryWebShareDownload(
 }
 
 function triggerBrowserDownload(bytes: Uint8Array, fileName: string, mimeType: string): void {
-  const blob = new Blob([bytes], { type: mimeType });
+  const blob = new Blob([bytes as BlobPart], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -215,7 +215,7 @@ async function saveViaFilePicker(
       excludeAcceptAllOption: true,
     });
     const writable = await handle.createWritable();
-    await writable.write(new Blob([bytes], { type: mimeType }));
+    await writable.write(new Blob([bytes as BlobPart], { type: mimeType }));
     await writable.close();
     return {
       saved: true,
@@ -359,7 +359,7 @@ export async function openExportFile(path: string): Promise<void> {
 export async function resolveSavedExportPath(
   result: SaveExportFileResult,
 ): Promise<string | undefined> {
-  const savedPath = trim(result.path);
+  const savedPath = trim(result.path ?? '');
   if (savedPath) {
     return savedPath;
   }
@@ -375,7 +375,7 @@ export async function resolveSavedExportPath(
   const host = await loadHostAdapter();
   if (host?.isNativeHost && typeof host.locateExportFile === 'function') {
     try {
-      const located = await host.locateExportFile(result.pathLabel);
+      const located = await host.locateExportFile(result.pathLabel ?? '');
       if (located) {
         return located;
       }

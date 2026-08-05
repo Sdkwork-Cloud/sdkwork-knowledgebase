@@ -14,11 +14,11 @@ export interface KnowledgeFileHeaderProps {
   setIsAddMenuOpen: (val: boolean) => void;
   isMultiSelectMode: boolean;
   setIsMultiSelectMode: (val: boolean) => void;
-  addMenuRef: React.RefObject<HTMLDivElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  audioInputRef: React.RefObject<HTMLInputElement>;
-  musicInputRef: React.RefObject<HTMLInputElement>;
-  folderInputRef: React.RefObject<HTMLInputElement>;
+  addMenuRef: React.RefObject<HTMLDivElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  audioInputRef: React.RefObject<HTMLInputElement | null>;
+  musicInputRef: React.RefObject<HTMLInputElement | null>;
+  folderInputRef: React.RefObject<HTMLInputElement | null>;
   currentFolderId: string | null;
   onMenuCreate: (actionType: string, parentId?: string, payload?: any) => Promise<any> | void;
   setIsLinkModalOpen: (val: boolean) => void;

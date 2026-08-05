@@ -46,10 +46,10 @@ export async function listMarketKnowledgeBasesPage(
 ): Promise<ReturnType<typeof normalizeSdkWorkListPage<MarketKnowledgeBase>>> {
   const client = requireKnowledgebaseAppSdkHttpClient();
   const page = normalizeSdkWorkListPage(
-    await client.knowledge.market.listings.list({ cursor, pageSize }),
+    await client.knowledge.market.listings.list({ cursor: cursor ?? undefined, pageSize }),
   );
   return {
-    items: page.items.map(mapCatalogItem),
+    items: page.items.map((item) => mapCatalogItem(item as Parameters<typeof mapCatalogItem>[0])),
     nextCursor: page.nextCursor,
     hasMore: page.hasMore,
   };

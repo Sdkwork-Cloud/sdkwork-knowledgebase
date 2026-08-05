@@ -98,7 +98,7 @@ function throwParentFolderNotFound(parentReference: string): never {
 async function resolveDriveNodeIdFromNumericDocument(documentId: number): Promise<string | null> {
   try {
     const document = await requireSdkClient().knowledge.documents.retrieve(String(documentId));
-    return trim(document.originalFileDriveNodeId) || null;
+    return trim(document.originalFileDriveNodeId ?? '') || null;
   } catch {
     return null;
   }
@@ -130,7 +130,7 @@ async function resolveBrowserParentNode(
   kbId: string,
   parentReference: string,
 ): Promise<KnowledgeBrowserNode> {
-  const trimmed = trim(parentReference)!;
+  const trimmed = trim(parentReference ?? '');
   const spaceId = spaceIdFromKbId(kbId);
   const loadedNodes = getLoadedKnowledgeBrowserNodes(spaceId);
 
@@ -180,7 +180,7 @@ export async function resolveKnowledgeBrowserParentDriveNodeId(
     return resolveKnowledgeBrowserFilesRootDriveNodeId(kbId);
   }
 
-  const trimmed = trim(parentReference)!;
+  const trimmed = trim(parentReference ?? '');
 
   if (isNumericDocumentReference(trimmed)) {
     const driveNodeId = await resolveDriveNodeIdFromNumericDocument(Number(trimmed));
@@ -238,6 +238,6 @@ export async function resolveKnowledgeBrowserParentNodeId(
     return null;
   }
 
-  const node = await resolveBrowserParentNode(kbId, trim(parentReference)!);
+  const node = await resolveBrowserParentNode(kbId, trim(parentReference ?? ''));
   return node.id;
 }

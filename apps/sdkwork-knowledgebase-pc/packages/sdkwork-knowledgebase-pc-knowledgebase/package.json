@@ -18,6 +18,26 @@
       "types": "./src/WechatPublishPage.tsx",
       "import": "./src/WechatPublishPage.tsx",
       "default": "./src/WechatPublishPage.tsx"
+    },
+    "./services/ai": {
+      "types": "./src/services/ai.ts",
+      "import": "./src/services/ai.ts",
+      "default": "./src/services/ai.ts"
+    },
+    "./services/document": {
+      "types": "./src/services/document.ts",
+      "import": "./src/services/document.ts",
+      "default": "./src/services/document.ts"
+    },
+    "./services/knowledgeAgentChatService": {
+      "types": "./src/services/knowledgeAgentChatService.ts",
+      "import": "./src/services/knowledgeAgentChatService.ts",
+      "default": "./src/services/knowledgeAgentChatService.ts"
+    },
+    "./utils/docTreeUtils": {
+      "types": "./src/utils/docTreeUtils.ts",
+      "import": "./src/utils/docTreeUtils.ts",
+      "default": "./src/utils/docTreeUtils.ts"
     }
   },
   "scripts": {
@@ -51,6 +71,8 @@
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "vitest": "^3.2.4"
   }
 }

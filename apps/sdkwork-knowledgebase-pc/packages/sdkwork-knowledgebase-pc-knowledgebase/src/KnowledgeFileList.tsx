@@ -236,7 +236,7 @@ export function KnowledgeFileList({
       setHighlightDocId(detail.docId);
       window.setTimeout(() => {
         if (currentDocs.length > VIRTUALIZE_THRESHOLD) {
-          const index = currentDocs.findIndex((item) => item.id === detail.docId);
+          const index = currentDocs.findIndex((item: FolderNode | DocumentMeta) => item.id === detail.docId);
           if (index >= 0) {
             virtualizer.scrollToIndex(index, { align: 'auto', behavior: 'smooth' });
             return;
@@ -457,7 +457,7 @@ export function KnowledgeFileList({
                   })}
                 </div>
               ) : (
-                currentDocs.map((item) => (
+                currentDocs.map((item: FolderNode | DocumentMeta) => (
                   <div
                     key={item.id}
                     className="kb-file-list-row"

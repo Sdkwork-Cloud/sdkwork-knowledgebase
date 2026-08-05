@@ -91,7 +91,7 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Latest session snapshot for debounced stream persistence without re-render.
-  const sessionsRef = useRef<Session[] | null>(null);
+  const sessionsRef = useRef<SearchSession[] | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const wasInChatModeRef = useRef(false);
   const mediaMigrationDoneRef = useRef(false);

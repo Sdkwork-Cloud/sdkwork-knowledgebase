@@ -30,10 +30,11 @@ packages:
   - "../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript"
   - "../sdkwork-app-topology"
 
+  - "../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-user-center-core-pc-react"
 catalog:
   react: "^19.0.1"
   react-dom: "^19.0.1"
-  typescript: "~5.8.2"
+  typescript: "~6.0.2"
   vite: "^6.2.3"
   "@types/react": "^19.0.0"
   "@types/react-dom": "^19.0.0"
@@ -138,4 +139,3 @@ catalog:
   vite-plugin-dts: "^4.5.4"
   vitest: ^4.1.8
   zustand: ^5.0.12
-  - "../../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-user-center-core-pc-react"

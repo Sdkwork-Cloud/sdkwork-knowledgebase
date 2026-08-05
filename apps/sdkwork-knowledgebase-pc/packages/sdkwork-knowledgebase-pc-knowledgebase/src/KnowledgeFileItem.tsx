@@ -17,10 +17,10 @@ export interface KnowledgeFileItemProps extends ReactKeyedComponentProps {
   setCurrentFolderId: (id: string) => void;
   onSelectDoc: (doc: DocumentMeta) => void;
   onMenuCreate: (actionType: string, parentId?: string, payload?: any) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  audioInputRef: React.RefObject<HTMLInputElement>;
-  musicInputRef: React.RefObject<HTMLInputElement>;
-  folderInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  audioInputRef: React.RefObject<HTMLInputElement | null>;
+  musicInputRef: React.RefObject<HTMLInputElement | null>;
+  folderInputRef: React.RefObject<HTMLInputElement | null>;
   setIsCloudDriveOpen: (val: boolean) => void;
   setIsLinkModalOpen: (val: boolean) => void;
   setLinkUrl: (url: string) => void;

@@ -345,7 +345,7 @@ export function PdfViewer({ activeDoc }: PdfViewerProps) {
         ) : documentFile ? (
           <Document
             key={pdfSource?.kind === 'bytes' ? `bytes-${activeDoc.id}` : `url-${activeDoc.url}`}
-            file={documentFile}
+            file={documentFile as unknown as File}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={handleDocumentLoadError}
             loading={

@@ -28,7 +28,7 @@ function parseDocumentId(documentId?: string): string | undefined {
   if (isBlank(documentId)) {
     return undefined;
   }
-  const trimmed = trim(documentId);
+  const trimmed = trim(documentId ?? '');
   if (!/^[0-9]+$/u.test(trimmed) || /^0+$/u.test(trimmed)) {
     return undefined;
   }
@@ -42,7 +42,7 @@ function resolveSpaceId(context?: MediaTaskContext): string {
 
   const spaceId = context?.spaceId;
   if (!isBlank(spaceId)) {
-    return parseKnowledgeSpaceId(spaceId);
+    return parseKnowledgeSpaceId(spaceId ?? '');
   }
 
   requireKnowledgebaseTenantId();
@@ -65,7 +65,7 @@ export async function runSpeechToTextTask(
     throwKnowledgebaseError(KnowledgebaseErrorCodes.SPEECH_NO_RESULT);
   }
 
-  return result.text;
+  return result.text ?? '';
 }
 
 export async function runImageGenerationTask(
@@ -90,7 +90,7 @@ export async function runImageGenerationTask(
   }
 
   return {
-    url: result.url,
+    url: result.url ?? '',
     resolution: result.resolution || '1024x1024',
     suggestions: result.suggestions,
     similars: result.similars,

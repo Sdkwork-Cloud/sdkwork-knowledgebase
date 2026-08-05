@@ -248,18 +248,20 @@ export class DocumentService {
       onProgress?: (progress: KnowledgeGitSyncService.GitSyncProgress) => void;
     },
   ): Promise<{ accepted: boolean; hash: string }> {
-    if (isBlank(options?.repoUrl)) {
+    if (!options || isBlank(options.repoUrl)) {
       requireNonEmptyString('', KnowledgebaseErrorCodes.REPO_URL_REQUIRED);
+      throw new Error('Git repository URL is required');
     }
 
+    const { repoUrl, branch, accessToken, onProgress } = options;
     return withKnowledgebaseApi(async () => {
       const result = await KnowledgeGitSyncService.syncGitRepository(
         kbId,
-        options.repoUrl,
-        options.branch ?? 'main',
+        repoUrl,
+        branch ?? 'main',
         commitMessage,
-        options.accessToken,
-        options.onProgress,
+        accessToken,
+        onProgress,
       );
       return { accepted: result.accepted, hash: result.hash };
     });

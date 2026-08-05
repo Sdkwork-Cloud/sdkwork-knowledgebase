@@ -147,7 +147,7 @@ export async function loadKnowledgeSpaceMembersPage(
   const spaceKey = String(spaceId);
   const client = getKnowledgebaseAppSdkClient().client;
   const page = normalizeSdkWorkListPage<KnowledgeSpaceMember>(
-    await client.knowledge.spaces.members.list(spaceKey, { cursor, pageSize }),
+    await client.knowledge.spaces.members.list(spaceKey, { cursor: cursor ?? undefined, pageSize }),
   );
   const items: KnowledgeSpaceMemberUi[] = [];
   for (const member of page.items) {

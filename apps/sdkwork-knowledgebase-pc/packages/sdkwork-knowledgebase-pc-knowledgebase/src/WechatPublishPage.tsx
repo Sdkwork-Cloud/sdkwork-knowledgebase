@@ -131,7 +131,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const { t } = useTranslation('editor');
   const { t: tErrors } = useTranslation('errors');
   const navigate = useNavigate();
-  const documents = location.state?.documents || defaultDocuments;
+  const documents: DocumentMeta[] = location.state?.documents || defaultDocuments;
   const cloudDriveSpaceId = React.useMemo(() => {
     const tenantId = getKnowledgebaseTenantId();
     if (!tenantId) {

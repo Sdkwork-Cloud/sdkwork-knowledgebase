@@ -45,7 +45,7 @@ async function writeSecureValue(key: string, value: string | undefined): Promise
     return;
   }
   await invokeDesktopCommand('write_secure_session_value', {
-    request: { key, value: value.trim() },
+    request: { key, value: (value ?? '').trim() },
   }).catch(() => undefined);
 }
 

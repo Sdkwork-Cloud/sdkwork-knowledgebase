@@ -336,10 +336,10 @@ function ProviderAdminFormDialog(props: { bindings: KnowledgeEngineProviderBindi
   const [clearCredential, setClearCredential] = useState(false);
   const activeBinding = props.bindings.find((item) => item.lifecycleState === 'active');
   const testedBindings = props.bindings.filter((item) => item.lifecycleState === 'testing');
-  const [sourceBindingId, setSourceBindingId] = useState(activeBinding?.id ?? '');
-  const [targetBindingId, setTargetBindingId] = useState(testedBindings[0]?.id ?? '');
+  const [sourceBindingId, setSourceBindingId] = useState<string>(activeBinding?.id ?? '');
+  const [targetBindingId, setTargetBindingId] = useState<string>(testedBindings[0]?.id ?? '');
   const [observationSeconds, setObservationSeconds] = useState(300);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID());
   const [validationError, setValidationError] = useState<string>();
   const title = props.t(props.dialog.kind);
 

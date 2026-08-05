@@ -46,5 +46,9 @@
     "domain": "knowledgebase",
     "capability": "knowledge",
     "status": "ready"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }

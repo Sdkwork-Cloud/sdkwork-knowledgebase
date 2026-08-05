@@ -197,7 +197,7 @@ function normalizeDualTokenValue(token: string | undefined): string | undefined 
     return undefined;
   }
 
-  const trimmed = token.trim();
+  const trimmed = (token ?? '').trim();
   const withoutBearer = trimmed.replace(/^Bearer\s+/i, '').trim();
   return withoutBearer || undefined;
 }

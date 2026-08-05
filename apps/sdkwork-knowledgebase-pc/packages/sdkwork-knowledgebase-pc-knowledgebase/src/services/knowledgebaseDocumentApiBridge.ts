@@ -1047,8 +1047,8 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
       throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
     }
     await applyDriveBrowserNodeUpdates(String(browserMatch.spaceId), browserMatch.node, {
-      title: updates.title,
-      parentId: updates.parentId,
+      title: updates.title ?? '',
+      parentId: updates.parentId ?? '',
       isPinned: updates.isPinned,
     });
   }

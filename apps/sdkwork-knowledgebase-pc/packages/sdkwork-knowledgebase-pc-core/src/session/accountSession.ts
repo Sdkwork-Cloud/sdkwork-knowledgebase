@@ -111,7 +111,7 @@ export async function signOutKnowledgebaseSession(
   try {
     const deleteCurrentSession = iamRuntime?.service?.auth?.sessions?.current?.delete;
     if (typeof deleteCurrentSession === 'function') {
-      await deleteCurrentSession.call(iamRuntime.service?.auth?.sessions?.current);
+      await deleteCurrentSession.call(iamRuntime?.service?.auth?.sessions?.current);
       return;
     }
   } catch {

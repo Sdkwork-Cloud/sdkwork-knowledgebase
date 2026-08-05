@@ -28,6 +28,8 @@
     "@sdkwork/utils": "workspace:*"
   },
   "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "vitest": "^3.2.4"
   }
 }

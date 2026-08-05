@@ -18,7 +18,7 @@ function requireDriveClient() {
 }
 
 export function resolveDriveNodeId(node: KnowledgeBrowserNode): string | null {
-  return trim(node.driveNodeId) || trim(node.id) || null;
+  return trim(node.driveNodeId ?? '') || trim(node.id ?? '') || null;
 }
 
 function parseTagsProperty(raw?: string | null): string[] {
@@ -50,7 +50,7 @@ function parseOrderProperty(raw?: string | null): number | undefined {
 export async function readDriveDocumentMetadata(
   driveNodeId: string,
 ): Promise<DriveDocumentMetadata> {
-  const response = normalizeDriveNodePropertyPage(await requireDriveClient().nodeProperties.list(driveNodeId, {
+  const response = normalizeDriveNodePropertyPage(await requireDriveClient().drive.nodeProperties.list(driveNodeId, {
     visibility: 'app_public',
     pageSize: 20,
   }));
@@ -69,7 +69,7 @@ export async function writeDriveDocumentTags(
   const client = requireDriveClient();
   if (tags.length === 0) {
     try {
-      await client.nodeProperties.delete(driveNodeId, DOCUMENT_TAGS_PROPERTY_KEY, {
+      await client.drive.nodeProperties.delete(driveNodeId, DOCUMENT_TAGS_PROPERTY_KEY, {
         visibility: 'app_public',
       });
     } catch {
@@ -78,7 +78,7 @@ export async function writeDriveDocumentTags(
     return;
   }
 
-  await client.nodeProperties.update(driveNodeId, DOCUMENT_TAGS_PROPERTY_KEY, {
+  await client.drive.nodeProperties.update(driveNodeId, DOCUMENT_TAGS_PROPERTY_KEY, {
     value: JSON.stringify(tags),
     visibility: 'app_public',
   });
@@ -88,7 +88,7 @@ export async function writeDriveDocumentOrder(
   driveNodeId: string,
   order: number,
 ): Promise<void> {
-  await requireDriveClient().nodeProperties.update(driveNodeId, DOCUMENT_ORDER_PROPERTY_KEY, {
+  await requireDriveClient().drive.nodeProperties.update(driveNodeId, DOCUMENT_ORDER_PROPERTY_KEY, {
     value: String(order),
     visibility: 'app_public',
   });

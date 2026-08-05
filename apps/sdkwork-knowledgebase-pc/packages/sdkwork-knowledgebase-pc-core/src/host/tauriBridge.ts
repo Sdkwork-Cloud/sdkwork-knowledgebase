@@ -22,7 +22,9 @@ export type DesktopCommandName =
   | 'read_secure_session_value'
   | 'take_pending_group_knowledgebase_launch';
 
-export type DesktopEventName = 'open-settings';
+export type DesktopEventName =
+  | 'open-settings'
+  | 'sdkwork://knowledgebase/group-launch';
 
 export function isTauriDesktopRuntime(): boolean {
   return typeof window !== 'undefined' && isTauri();
