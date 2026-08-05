@@ -172,14 +172,16 @@ export function EditorPanel({
             {aiEnabled && (
             <div className="flex items-center space-x-1 border border-zinc-200/80 dark:border-transparent bg-white dark:bg-black/20 p-0.5 rounded-lg shadow-sm shrink-0">
               <button 
-                disabled={!activeDoc}
-                className="p-1 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-md transition-all active:scale-95 text-zinc-500 dark:text-zinc-400 disabled:opacity-30 disabled:pointer-events-none"
+                disabled
+                className="p-1 text-zinc-400 dark:text-zinc-600 rounded-md cursor-not-allowed opacity-60"
+                title={t('shareComingSoon', { defaultValue: '分享功能即将上线' })}
               >
                 <Share2 size={13} strokeWidth={2.5} />
               </button>
               <button 
-                disabled={!activeDoc}
-                className="p-1 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-md transition-all active:scale-95 text-zinc-500 dark:text-zinc-400 disabled:opacity-30 disabled:pointer-events-none"
+                disabled
+                className="p-1 text-zinc-400 dark:text-zinc-600 rounded-md cursor-not-allowed opacity-60"
+                title={t('pinComingSoon', { defaultValue: '置顶功能即将上线' })}
               >
                 <Pin size={13} strokeWidth={2.5} />
               </button>

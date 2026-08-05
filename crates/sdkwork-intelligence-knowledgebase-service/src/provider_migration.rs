@@ -130,16 +130,28 @@ where
                 }
                 Err(error) => return Err(error),
             };
-            sdkwork_knowledgebase_observability::record_provider_migration_transition(
-                self.scope.tenant_id,
-                worker_id,
-                processed_operation.id,
-                processed_operation.space_id,
-                claimed.operation.operation_state.as_str(),
-                processed_operation.operation_state.as_str(),
-                processed_operation.version,
-            )
-            .await?;
+            // Audit persistence is an observability side channel, never a critical-path
+            // dependency: when the audit store is unavailable the transition is still
+            // recorded as an error-level log so the migration state machine keeps moving.
+            if let Err(error) =
+                sdkwork_knowledgebase_observability::record_provider_migration_transition(
+                    self.scope.tenant_id,
+                    worker_id,
+                    processed_operation.id,
+                    processed_operation.space_id,
+                    claimed.operation.operation_state.as_str(),
+                    processed_operation.operation_state.as_str(),
+                    processed_operation.version,
+                )
+                .await
+            {
+                tracing::error!(
+                    tenant_id = self.scope.tenant_id,
+                    operation_id = processed_operation.id,
+                    error = %error,
+                    "provider migration transition audit write failed; transition still recorded in logs"
+                );
+            }
             let terminal_state = processed_operation.operation_state;
             result.processed += 1;
             match terminal_state {

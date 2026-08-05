@@ -41,7 +41,7 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         &self,
     ) -> BackendApiResult<GroupKnowledgebaseLaunchCapability> {
         Err(BackendApiError::unsupported_operation(
-            "groupLaunchCapability.retrieve",
+            "group.launch.capability",
         ))
     }
 

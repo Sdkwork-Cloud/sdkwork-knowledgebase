@@ -1,6 +1,11 @@
 use crate::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatcher;
 use crate::ports::knowledge_outbox_store::{KnowledgeOutboxStore, KnowledgeOutboxStoreError};
+use futures::{stream, StreamExt};
 use thiserror::Error;
+
+/// Bounded in-batch dispatch concurrency: a slow webhook endpoint delays only the events
+/// sharing its batch window, never the whole outbox domain for the batch duration.
+const OUTBOX_PUBLISH_CONCURRENCY: usize = 4;
 
 pub struct KnowledgeOutboxPublisherService<'a> {
     outbox: &'a dyn KnowledgeOutboxStore,
@@ -33,47 +38,15 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
 
         let mut published = 0usize;
         let mut failed = 0usize;
-        for claimed in pending {
-            let event = &claimed.event;
-            tracing::info!(
-                event_id = event.id,
-                event_type = %event.event_type,
-                aggregate_type = %event.aggregate_type,
-                aggregate_id = event.aggregate_id,
-                "dispatching knowledgebase outbox event"
-            );
-            match self.dispatcher.dispatch(self.tenant_id, event).await {
-                Ok(()) => {
-                    // A stale/fenced completion must not abort the rest of the
-                    // batch: the event is left CLAIMED and will be released by
-                    // the stale-claim sweep (at-least-once redelivery), while
-                    // the remaining claimed events keep being processed.
-                    if let Err(error) = self.outbox.mark_published(&claimed).await {
-                        tracing::error!(
-                            event_id = event.id,
-                            error = %error,
-                            "knowledgebase outbox mark_published failed; event remains claimed and will be released by the stale-claim sweep"
-                        );
-                    } else {
-                        published += 1;
-                    }
-                }
-                Err(error) => {
-                    tracing::warn!(
-                        event_id = event.id,
-                        error = %error,
-                        "knowledgebase outbox dispatch failed"
-                    );
-                    if let Err(mark_error) = self.outbox.mark_failed(&claimed, &error.to_string()).await {
-                        tracing::error!(
-                            event_id = event.id,
-                            error = %mark_error,
-                            "knowledgebase outbox mark_failed failed; event remains claimed and will be released by the stale-claim sweep"
-                        );
-                    } else {
-                        failed += 1;
-                    }
-                }
+        let outcomes = stream::iter(pending)
+            .map(|claimed| self.dispatch_one(claimed))
+            .buffer_unordered(OUTBOX_PUBLISH_CONCURRENCY);
+        tokio::pin!(outcomes);
+        while let Some(outcome) = outcomes.next().await {
+            match outcome {
+                DispatchOutcome::Published => published += 1,
+                DispatchOutcome::Failed => failed += 1,
+                DispatchOutcome::Unresolved => {}
             }
         }
 
@@ -84,6 +57,62 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
             dead_lettered: 0,
         })
     }
+
+    async fn dispatch_one(
+        &self,
+        claimed: crate::ports::knowledge_outbox_store::ClaimedOutboxEvent,
+    ) -> DispatchOutcome {
+        let event = &claimed.event;
+        tracing::info!(
+            event_id = event.id,
+            event_type = %event.event_type,
+            aggregate_type = %event.aggregate_type,
+            aggregate_id = event.aggregate_id,
+            "dispatching knowledgebase outbox event"
+        );
+        match self.dispatcher.dispatch(self.tenant_id, event).await {
+            Ok(()) => {
+                // A stale/fenced completion must not abort the rest of the
+                // batch: the event is left CLAIMED and will be released by
+                // the stale-claim sweep (at-least-once redelivery), while
+                // the remaining claimed events keep being processed.
+                if let Err(error) = self.outbox.mark_published(&claimed).await {
+                    tracing::error!(
+                        event_id = event.id,
+                        error = %error,
+                        "knowledgebase outbox mark_published failed; event remains claimed and will be released by the stale-claim sweep"
+                    );
+                    DispatchOutcome::Unresolved
+                } else {
+                    DispatchOutcome::Published
+                }
+            }
+            Err(error) => {
+                tracing::warn!(
+                    event_id = event.id,
+                    error = %error,
+                    "knowledgebase outbox dispatch failed"
+                );
+                if let Err(mark_error) = self.outbox.mark_failed(&claimed, &error.to_string()).await
+                {
+                    tracing::error!(
+                        event_id = event.id,
+                        error = %mark_error,
+                        "knowledgebase outbox mark_failed failed; event remains claimed and will be released by the stale-claim sweep"
+                    );
+                    DispatchOutcome::Unresolved
+                } else {
+                    DispatchOutcome::Failed
+                }
+            }
+        }
+    }
+}
+
+enum DispatchOutcome {
+    Published,
+    Failed,
+    Unresolved,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

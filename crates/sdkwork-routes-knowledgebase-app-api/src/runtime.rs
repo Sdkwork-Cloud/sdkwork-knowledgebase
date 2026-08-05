@@ -1136,13 +1136,16 @@ impl KnowledgebaseRuntime {
             ),
             outbox_dispatcher:
                 sdkwork_intelligence_knowledgebase_service::outbox::knowledge_outbox_dispatcher_from_env(),
-            chunk_store: Arc::new(SqliteKnowledgeChunkStore::with_keyword_backend(
-                pool.clone(),
-                tenant_id,
-                organization_id,
-                keyword_backend,
-                default_knowledge_id_generator(),
-            )),
+            chunk_store: Arc::new(
+                SqliteKnowledgeChunkStore::with_keyword_backend(
+                    pool.clone(),
+                    tenant_id,
+                    organization_id,
+                    keyword_backend,
+                    default_knowledge_id_generator(),
+                )
+                .with_database_engine(database_engine),
+            ),
             context_binding_store: Arc::new(
                 SqliteContextBindingStore::new(pool.clone(), organization_id)
                     .with_database_engine(database_engine),
@@ -1873,7 +1876,7 @@ impl KnowledgebaseRuntime {
     ) -> Result<
         sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::OutboxRequeueResult,
         String,
-    > {
+    >{
         self.outbox_store()
             .requeue_failed_events(limit, outbox_max_retries())
             .await

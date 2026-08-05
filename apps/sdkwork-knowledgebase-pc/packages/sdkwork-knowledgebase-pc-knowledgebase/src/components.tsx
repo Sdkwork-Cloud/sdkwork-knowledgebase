@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,6 +32,7 @@ import type { CloudDriveImportResultItem } from './services/cloudDriveService';
 import { useTranslation } from 'react-i18next';
 import { KnowledgeBaseMarketView } from './KnowledgeBaseMarketView';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
+import { useKnowledgeBaseDocumentPersistence } from './hooks/useKnowledgeBaseDocumentPersistence';
 import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { toast } from './components/ui/toast-manager';
 import { invalidateKnowledgeBrowserNodeCacheForSpaceIds } from './services/knowledgeBrowserListService';
@@ -113,6 +114,22 @@ export function KnowledgeBaseApp({
     { enabled: persistWorkspaceState },
   );
   const [isDraggingKbs, setIsDraggingKbs] = useState<boolean>(false);
+
+  // Debounced, serialized document persistence: one save per document in flight, pending
+  // content flushed on doc switch and window unload (never a request storm per keystroke).
+  const { handleContentChange } = useKnowledgeBaseDocumentPersistence({
+    activeDoc,
+    docs,
+    loadingDocs,
+    setOpenDocs,
+    setActiveDoc,
+    setDocContent,
+  });
+
+  // Request sequence guards: a stale response (older than the latest selection) is
+  // discarded so fast doc/KB switching can never render one document under another.
+  const docRequestSeqRef = useRef(0);
+  const kbRequestSeqRef = useRef(0);
   const [docsWidth, setDocsWidth] = useLocalStorage<number>(
     'app-docs-width',
     340,
@@ -268,10 +285,15 @@ export function KnowledgeBaseApp({
     }
 
     if (doc.type === 'richtext' || doc.type === 'code' || doc.type === 'markdown') {
+      const seq = ++docRequestSeqRef.current;
       setDocContent('Loading...');
       const content = await DocumentService.getDocumentContent(doc.id);
+      if (seq !== docRequestSeqRef.current) {
+        return;
+      }
       setDocContent(content);
     } else {
+      docRequestSeqRef.current += 1;
       setDocContent('');
     }
   }, [activeKb, tabCache]);
@@ -291,7 +313,11 @@ export function KnowledgeBaseApp({
     setDocContent('');
     
     setLoadingDocs(true);
+    const kbSeq = ++kbRequestSeqRef.current;
     DocumentService.getDocuments(kb.id).then(data => {
+      if (kbSeq !== kbRequestSeqRef.current) {
+        return;
+      }
       setDocs(data);
       setLoadingDocs(false);
       
@@ -406,12 +432,6 @@ export function KnowledgeBaseApp({
     // 3. Persist
     await DocumentService.updateDocument(docId, { title: newTitle });
   }, []);
-
-  const handleContentChange = useCallback((newContent: string) => {
-    if (activeDoc) {
-      DocumentService.saveDocumentContent(activeDoc.id, newContent);
-    }
-  }, [activeDoc]);
 
   // Sync tabs with extant documents list (automatically closing deleted tabs)
   useEffect(() => {
@@ -695,7 +715,12 @@ export function KnowledgeBaseApp({
             publishEnabled={!isEphemeralFixedWorkspace}
             onUpdateDocs={() => {
               if (activeKb) {
-                DocumentService.getDocuments(activeKb.id).then(setDocs);
+                const refreshSeq = ++kbRequestSeqRef.current;
+                DocumentService.getDocuments(activeKb.id).then(data => {
+                  if (refreshSeq === kbRequestSeqRef.current) {
+                    setDocs(data);
+                  }
+                });
               }
             }}
           />
@@ -717,7 +742,12 @@ export function KnowledgeBaseApp({
             onContentChange={handleContentChange} 
             onUpdateDocs={() => {
               if (activeKb) {
-                DocumentService.getDocuments(activeKb.id).then(setDocs);
+                const refreshSeq = ++kbRequestSeqRef.current;
+                DocumentService.getDocuments(activeKb.id).then(data => {
+                  if (refreshSeq === kbRequestSeqRef.current) {
+                    setDocs(data);
+                  }
+                });
               }
             }}
             onPublishDoc={(doc) => {

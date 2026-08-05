@@ -156,7 +156,7 @@ fn postgres_url_with_deployment_scope(
     }
 
     let scope_options = format!(
-        "-c {POSTGRES_TENANT_SESSION_KEY}={tenant_id} -c {POSTGRES_ORGANIZATION_SESSION_KEY}={organization_id}"
+        "-c {POSTGRES_TENANT_SESSION_KEY}={tenant_id} -c {POSTGRES_ORGANIZATION_SESSION_KEY}={organization_id} -c statement_timeout=30000"
     );
     if let Some(index) = options_index {
         let existing = query_pairs[index].1.trim();
@@ -250,8 +250,7 @@ fn ensure_url_ssl_mode(database_url: &str, mode: PgSslMode) -> Result<String, Po
         PgSslMode::VerifyCa => "verify-ca",
         PgSslMode::VerifyFull => "verify-full",
     };
-    url.query_pairs_mut()
-        .append_pair("sslmode", mode_name);
+    url.query_pairs_mut().append_pair("sslmode", mode_name);
     Ok(url.into())
 }
 
@@ -383,7 +382,7 @@ mod tests {
             .expect("options parameter");
         assert_eq!(
             options,
-            "-c search_path=sdkwork_ai_dev,public -c app.current_tenant_id=42 -c app.current_organization_id=7"
+            "-c search_path=sdkwork_ai_dev,public -c app.current_tenant_id=42 -c app.current_organization_id=7 -c statement_timeout=30000"
         );
         assert_eq!(
             resolve_postgres_ssl_mode(&configured).expect("SSL mode"),
@@ -398,7 +397,8 @@ mod tests {
                 .expect("tenant-scoped URL");
         let parsed = Url::parse(&configured).expect("valid URL");
         assert!(parsed.query_pairs().any(|(key, value)| key == "options"
-            && value == "-c app.current_tenant_id=7 -c app.current_organization_id=11"));
+            && value
+                == "-c app.current_tenant_id=7 -c app.current_organization_id=11 -c statement_timeout=30000"));
     }
 
     #[test]
@@ -441,9 +441,11 @@ mod tests {
 
     #[test]
     fn any_pool_url_preserves_explicit_ssl_mode() {
-        let configured =
-            ensure_url_ssl_mode("postgresql://app@localhost/kb?sslmode=require", PgSslMode::Disable)
-                .expect("explicit mode preserved");
+        let configured = ensure_url_ssl_mode(
+            "postgresql://app@localhost/kb?sslmode=require",
+            PgSslMode::Disable,
+        )
+        .expect("explicit mode preserved");
         let parsed = Url::parse(&configured).expect("valid URL");
         assert_eq!(
             parsed

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { AiModelSelector } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import { DocumentMeta, FolderNode } from './services/document';
 import { AIService } from './services/ai';
-import { McpAgentService, McpToolCall } from './services/mcpAgent';
+import type { McpToolCall } from './services/mcpAgent';
 import {
   resolveUserFacingErrorMessage,
   type ErrorTranslateFn,
@@ -53,6 +53,9 @@ export function AiAssistantPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const [selectedReferences, setSelectedReferences] = useState<DocumentMeta[]>([]);
+  // Monotonic generation id: bumping it invalidates any in-flight generation so "stop"
+  // really stops the streamed reply from appending stale content.
+  const generationSeqRef = useRef(0);
 
   useEffect(() => {
     // Clear references when switching knowledge base
@@ -88,6 +91,7 @@ export function AiAssistantPanel({
        return;
     }
 
+    const generation = ++generationSeqRef.current;
     try {
       const scope = resolveKnowledgebaseWorkspaceAiScope(workspaceMode, activeKbId);
       const { result: responseText, toolCalls } = await AIService.generateChatResponse(
@@ -96,6 +100,9 @@ export function AiAssistantPanel({
         currentRefs.map((reference) => reference.title).join(','),
         scope,
       );
+      if (generation !== generationSeqRef.current) {
+        return;
+      }
       const resolvedToolCalls = toolCalls?.map((toolCall): McpToolCall => ({
         ...toolCall,
         status: toolCall.status ?? 'failed',
@@ -106,13 +113,21 @@ export function AiAssistantPanel({
         toolCalls: resolvedToolCalls,
       }]);
     } catch (error) {
+      if (generation !== generationSeqRef.current) {
+        return;
+      }
       appendRequestError(error);
     } finally {
-      setIsTyping(false);
+      if (generation === generationSeqRef.current) {
+        setIsTyping(false);
+      }
     }
   };
 
   const handleAbort = () => {
+    // Invalidate the in-flight generation; the completed response is discarded so the
+    // assistant reply really stops instead of resuming after the user pressed stop.
+    generationSeqRef.current += 1;
     setIsTyping(false);
   };
 
@@ -127,26 +142,6 @@ export function AiAssistantPanel({
     setIsTyping(true);
 
     void handleDefaultSend(userMessage, currentRefs);
-  };
-
-  const triggerQuickTool = async (commandText: string) => {
-    if (isTyping) return;
-    setInputValue('');
-    setIsDocSelectorOpen(false);
-    setMessages(prev => [...prev, { role: 'user', content: commandText, references: [] }]);
-    setIsTyping(true);
-    try {
-      const result = await McpAgentService.processUserQuery(commandText, selectedArticle);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: result.responseText,
-        toolCalls: result.toolCalls,
-      }]);
-    } catch (error) {
-      appendRequestError(error);
-    } finally {
-      setIsTyping(false);
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -248,12 +243,14 @@ export function AiAssistantPanel({
                       { label: t('chipDiagnose', { ns: 'mcp' }), cmd: t('quickDiagnose', { ns: 'mcp' }) },
                       { label: t('chipRewrite', { ns: 'mcp' }), cmd: t('quickRewrite', { ns: 'mcp' }) }
                     ].map((chip, i) => (
-                      <button 
+                      <button
                         key={i}
                         type="button"
-                        onClick={() => triggerQuickTool(chip.cmd)}
-                        disabled={isTyping}
-                        className="px-3.5 py-1.5 text-[12px] font-bold bg-[#fafafa] dark:bg-[var(--color-kb-editor)] border border-zinc-200/80 dark:border-[var(--color-kb-panel-border)] hover:border-indigo-300 dark:hover:border-[var(--color-kb-accent)]/40 hover:bg-indigo-50 dark:hover:bg-[var(--color-kb-accent)]/5 text-zinc-700 dark:text-[var(--color-kb-text)] rounded-full transition-all cursor-pointer shadow-sm hover:shadow active:scale-95 disabled:opacity-50 hover:text-indigo-700 dark:hover:text-indigo-300"
+                        // Quick-tool commands are not yet wired to a server capability; keep
+                        // the entry honest and disabled instead of invoking a guaranteed failure.
+                        disabled
+                        title={t('comingSoon', { ns: 'mcp' }) || '即将上线'}
+                        className="px-3.5 py-1.5 text-[12px] font-bold bg-[#fafafa] dark:bg-[var(--color-kb-editor)] border border-zinc-200/80 dark:border-[var(--color-kb-panel-border)] text-zinc-400 dark:text-[var(--color-kb-text-muted)] rounded-full transition-all cursor-not-allowed opacity-70"
                       >
                         {chip.label}
                       </button>

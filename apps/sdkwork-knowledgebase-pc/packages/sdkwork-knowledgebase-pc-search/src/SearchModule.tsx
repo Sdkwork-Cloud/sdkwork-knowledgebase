@@ -18,57 +18,69 @@ import { showSearchToast } from './utils/searchToast';
 
 export type { SearchMessage, SearchModuleProps, SearchSession, SearchSource } from './types';
 
+// Startup rehydration is deliberately bounded: at most RECENT_SESSIONS are migrated and
+// each runs its searches sequentially, so opening the app can never fire hundreds of
+// concurrent RAG calls against historical messages.
+const REHYDRATE_MAX_SESSIONS = 5;
+const REHYDRATE_MAX_MESSAGES_PER_SESSION = 10;
+
 async function rehydrateMissingRelatedMedia(
   sessionList: SearchSession[]
 ): Promise<{ sessions: SearchSession[]; changed: boolean }> {
   let changed = false;
 
-  const sessions = await Promise.all(
-    sessionList.map(async (session) => {
-      const webSearchEnabled = session.webSearchEnabled ?? true;
-      let sessionChanged = false;
+  const sessions: SearchSession[] = [];
+  for (const session of sessionList.slice(0, REHYDRATE_MAX_SESSIONS)) {
+    const webSearchEnabled = session.webSearchEnabled ?? true;
+    let sessionChanged = false;
 
-      const messages = await Promise.all(
-        session.messages.map(async (msg, msgIndex) => {
-          if (
-            msg.role !== 'assistant' ||
-            msg.isSearching ||
-            isBlank(msg.content) ||
-            hasRelatedMedia(msg.relatedMedia)
-          ) {
-            return msg;
-          }
+    const messages = [...session.messages];
+    const candidates = session.messages
+      .slice(0, REHYDRATE_MAX_MESSAGES_PER_SESSION)
+      .map((msg, msgIndex) => ({ msg, msgIndex }))
+      .filter(({ msg, msgIndex }) => {
+        if (
+          msg.role !== 'assistant' ||
+          msg.isSearching ||
+          isBlank(msg.content) ||
+          hasRelatedMedia(msg.relatedMedia)
+        ) {
+          return false;
+        }
+        return session.messages
+          .slice(0, msgIndex)
+          .reverse()
+          .some((m) => m.role === 'user');
+      });
 
-          const userMsg = [...session.messages.slice(0, msgIndex)]
-            .reverse()
-            .find((m) => m.role === 'user');
-          if (!userMsg) return msg;
+    // Sequential per-session migration: bounded latency at startup, no request burst.
+    for (const { msg, msgIndex } of candidates) {
+      sessionChanged = true;
+      changed = true;
+      const userMsg = [...session.messages.slice(0, msgIndex)]
+        .reverse()
+        .find((m) => m.role === 'user');
+      if (!userMsg) continue;
+      try {
+        const searchResults = await DocumentService.searchAll(userMsg.content);
+        messages[msgIndex] = {
+          ...msg,
+          relatedMedia: buildRelatedMedia(
+            userMsg.content,
+            searchResults.docs,
+            webSearchEnabled
+          )
+        };
+      } catch {
+        messages[msgIndex] = {
+          ...msg,
+          relatedMedia: buildRelatedMedia(userMsg.content, [], webSearchEnabled)
+        };
+      }
+    }
 
-          sessionChanged = true;
-          changed = true;
-
-          try {
-            const searchResults = await DocumentService.searchAll(userMsg.content);
-            return {
-              ...msg,
-              relatedMedia: buildRelatedMedia(
-                userMsg.content,
-                searchResults.docs,
-                webSearchEnabled
-              )
-            };
-          } catch {
-            return {
-              ...msg,
-              relatedMedia: buildRelatedMedia(userMsg.content, [], webSearchEnabled)
-            };
-          }
-        })
-      );
-
-      return sessionChanged ? { ...session, messages } : session;
-    })
-  );
+    sessions.push(sessionChanged ? { ...session, messages } : session);
+  }
 
   return { sessions, changed };
 }
@@ -90,6 +102,9 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Monotonic generation id: bumping it on stop invalidates an in-flight retrieval so a
+  // late response can never resume streaming after the user pressed stop.
+  const generationSeqRef = useRef(0);
   // Latest session snapshot for debounced stream persistence without re-render.
   const sessionsRef = useRef<SearchSession[] | null>(null);
   const shouldAutoScrollRef = useRef(true);
@@ -354,23 +369,23 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
       }
     };
 
-    await new Promise((r) => setTimeout(r, 600));
-    updateStepsState('intent', 'success');
+    const generation = ++generationSeqRef.current;
 
-    await new Promise((r) => setTimeout(r, 500));
-    updateStepsState('local', 'success');
-
-    if (webSearchEnabled) {
-      await new Promise((r) => setTimeout(r, 600));
-      updateStepsState('web', 'success');
-    }
-
+    // Steps advance on real retrieval outcome, never on simulated delays.
     const { sources, relatedMedia, responseText } = await generateCitationsAndResults(query, {
       webSearchEnabled
     });
+    if (generation !== generationSeqRef.current) {
+      // The user stopped this generation while it was in flight; discard the result.
+      return;
+    }
 
+    updateStepsState('intent', 'success');
+    updateStepsState('local', 'success');
+    if (webSearchEnabled) {
+      updateStepsState('web', 'success');
+    }
     updateStepsState('synthesis', 'success');
-    await new Promise((r) => setTimeout(r, 200));
 
     if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
 
@@ -452,6 +467,7 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
   };
 
   const handleStopGeneration = () => {
+    generationSeqRef.current += 1;
     if (streamIntervalRef.current) {
       clearInterval(streamIntervalRef.current);
       streamIntervalRef.current = null;

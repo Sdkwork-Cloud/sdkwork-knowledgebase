@@ -4,10 +4,15 @@ use sdkwork_knowledgebase_engine_ragflow::{RagflowConnectorConfig, RagflowKnowle
 use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+// Wiremock fixtures run on loopback; the provider SSRF protection fails closed unless
+// this explicit test-only allowance is set (never set it in a deployed environment).
+fn allow_test_loopback() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_PROVIDER_RUNTIME_ALLOW_LOOPBACK", "1");
+}
 
 #[tokio::test]
 async fn ragflow_read_document_fetches_chunk_detail() {
-    let mock_server = MockServer::start().await;
+    allow_test_loopback();    let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path(
             "/api/v1/datasets/ds-42/documents/doc-1/chunks/chunk-9",

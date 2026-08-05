@@ -9,10 +9,15 @@ use sdkwork_knowledgebase_test_support::provider_execution::{
 };
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+// Wiremock fixtures run on loopback; the provider SSRF protection fails closed unless
+// this explicit test-only allowance is set (never set it in a deployed environment).
+fn allow_test_loopback() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_PROVIDER_RUNTIME_ALLOW_LOOPBACK", "1");
+}
 
 #[tokio::test]
 async fn qdrant_search_uses_configured_remote_resource_id() {
-    let mock_server = MockServer::start().await;
+    allow_test_loopback();    let mock_server = MockServer::start().await;
     let collection_name = "policies";
     Mock::given(method("POST"))
         .and(path(format!("/collections/{collection_name}/points/query")))
@@ -62,7 +67,7 @@ async fn qdrant_search_uses_configured_remote_resource_id() {
 
 #[tokio::test]
 async fn qdrant_read_document_fetches_point_by_id() {
-    let mock_server = MockServer::start().await;
+    allow_test_loopback();    let mock_server = MockServer::start().await;
     let collection_name = "policies";
     Mock::given(method("POST"))
         .and(path(format!("/collections/{collection_name}/points")))
@@ -108,7 +113,7 @@ async fn qdrant_read_document_fetches_point_by_id() {
 
 #[tokio::test]
 async fn qdrant_list_documents_is_explicitly_unsupported() {
-    let collection_name = "policies";
+    allow_test_loopback();    let collection_name = "policies";
     let config = QdrantConnectorConfig {
         base_url: "http://localhost:6333".to_string(),
         api_key: None,
@@ -154,6 +159,6 @@ async fn assert_qdrant_health(upstream_status: u16, expected: KnowledgeEngineHea
 
 #[tokio::test]
 async fn qdrant_health_maps_upstream_availability() {
-    assert_qdrant_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();    assert_qdrant_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_qdrant_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }

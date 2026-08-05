@@ -99,7 +99,44 @@ export function writeLocalDocumentContent(
     contentVersion: contentVersion ?? new Date().toISOString(),
     cachedAt: new Date().toISOString(),
   };
-  storage.setItem(contentStorageKey(tenantId, documentId), JSON.stringify(payload));
+  try {
+    storage.setItem(contentStorageKey(tenantId, documentId), JSON.stringify(payload));
+  } catch {
+    // Storage quota exhausted: evict the oldest cached entries for the tenant and retry
+    // once. A failed cache write must never surface as a document save/load error.
+    evictOldestTenantEntries(storage, tenantId, 8);
+    try {
+      storage.setItem(contentStorageKey(tenantId, documentId), JSON.stringify(payload));
+    } catch {
+      // Best-effort cache only; the caller's persistence path must not fail on quota.
+    }
+  }
+}
+
+function evictOldestTenantEntries(storage: Storage, tenantId: string, maxEntries: number): void {
+  const prefix = `${CONTENT_CACHE_KEY_PREFIX}.${tenantId}.`;
+  const entries: { key: string; cachedAt: number }[] = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key?.startsWith(prefix)) {
+      continue;
+    }
+    const raw = storage.getItem(key);
+    let cachedAt = 0;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<CachedDocumentContent>;
+        cachedAt = Date.parse(parsed.cachedAt ?? '') || 0;
+      } catch {
+        cachedAt = 0;
+      }
+    }
+    entries.push({ key, cachedAt });
+  }
+  entries.sort((left, right) => left.cachedAt - right.cachedAt);
+  for (const entry of entries.slice(0, maxEntries)) {
+    storage.removeItem(entry.key);
+  }
 }
 
 export function removeLocalDocumentContent(tenantId: string, documentId: string): void {

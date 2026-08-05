@@ -209,6 +209,12 @@ export class DocumentService {
     return withKnowledgebaseApi(() => KnowledgeMarketService.listMarketKnowledgeBases());
   }
 
+  static async listMarketKnowledgeBasesPage(
+    cursor?: string | null,
+  ): Promise<{ items: MarketKnowledgeBase[]; nextCursor: string | null; hasMore: boolean }> {
+    return withKnowledgebaseApi(() => KnowledgeMarketService.listMarketKnowledgeBasesPage(cursor));
+  }
+
   static async subscribeMarketKb(id: string): Promise<boolean> {
     return withKnowledgebaseApi(() => KnowledgeMarketService.subscribeMarketListing(id));
   }

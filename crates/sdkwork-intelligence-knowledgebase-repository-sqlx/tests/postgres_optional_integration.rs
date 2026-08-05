@@ -302,3 +302,68 @@ async fn postgres_browser_projection_batches_document_status_when_database_url_c
     assert_eq!(batch[0].document_id, document.id);
     assert_eq!(batch[0].current_version_id, Some(version.id));
 }
+
+#[tokio::test]
+async fn postgres_rls_hides_rows_without_session_scope_when_database_url_configured() {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping postgres RLS test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
+
+    let pool = connect_postgres_and_install_schema(&database_url)
+        .await
+        .expect("connect postgres knowledgebase schema");
+
+    // Write one row through a session bound to tenant 1 / organization 1.
+    let store = SqliteKnowledgeSpaceStore::new(pool.clone(), 1, 1);
+    let created = store
+        .create_space(CreateKnowledgeSpaceRecord {
+            name: "RLS fail-closed fixture".to_string(),
+            description: None,
+            okf_bundle_initialized: false,
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
+        .await
+        .expect("create space under tenant 1");
+
+    // A session without `app.current_tenant_id`/`app.current_organization_id` must see
+    // zero rows (FORCE ROW LEVEL SECURITY policies fail closed on missing variables).
+    let unscoped = sqlx::any::AnyPoolOptions::new()
+        .max_connections(1)
+        .connect(&database_url)
+        .await
+        .expect("connect unscoped pool");
+    let visible: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_space WHERE id = $1")
+        .bind(i64::try_from(created.id).expect("space id fits i64"))
+        .fetch_one(&unscoped)
+        .await
+        .expect("count rows without scope");
+    assert_eq!(
+        visible, 0,
+        "RLS must hide rows when session scope variables are absent"
+    );
+
+    // A session bound to a different organization must also see zero rows.
+    let other_org = sqlx::any::AnyPoolOptions::new()
+        .max_connections(1)
+        .connect(&database_url)
+        .await
+        .expect("connect other-org pool");
+    sqlx::query("SELECT set_config('app.current_tenant_id', '1', false)")
+        .execute(&other_org)
+        .await
+        .expect("set tenant scope");
+    sqlx::query("SELECT set_config('app.current_organization_id', '999', false)")
+        .execute(&other_org)
+        .await
+        .expect("set organization scope");
+    let visible_other: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_space WHERE id = $1")
+        .bind(i64::try_from(created.id).expect("space id fits i64"))
+        .fetch_one(&other_org)
+        .await
+        .expect("count rows in other organization");
+    assert_eq!(
+        visible_other, 0,
+        "RLS must hide rows for a mismatched organization scope"
+    );
+}

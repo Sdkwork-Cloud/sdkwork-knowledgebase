@@ -4,7 +4,7 @@ import {
   requireKnowledgebaseAppSdkHttpClient,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
-import { listKnowledgeBrowserNodesPage } from './knowledgeBrowserListService';
+import { listKnowledgeBrowserNodesPage, MAX_BROWSER_RESOLVE_SCAN_PAGES } from './knowledgeBrowserListService';
 
 const INGEST_POLL_INTERVAL_MS = 250;
 const INGEST_POLL_TIMEOUT_MS = 30_000;
@@ -41,8 +41,15 @@ async function findDocumentByTitleInBrowser(
   normalizedTitle: string,
   fresh: boolean,
 ): Promise<{ id: string; title: string } | null> {
+  // Bounded scan: matching the browser service page budget (PAGINATION_SPEC store-level
+  // bound) so a title miss can never walk the whole space page by page.
   let cursor: string | null = null;
+  let pages = 0;
   do {
+    pages += 1;
+    if (pages > MAX_BROWSER_RESOLVE_SCAN_PAGES) {
+      break;
+    }
     const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
       cursor,
       fresh,

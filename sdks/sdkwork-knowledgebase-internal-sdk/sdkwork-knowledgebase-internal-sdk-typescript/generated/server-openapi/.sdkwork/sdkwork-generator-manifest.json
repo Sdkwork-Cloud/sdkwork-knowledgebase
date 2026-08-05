@@ -12,7 +12,7 @@
   "generatedFiles": [
     {
       "path": "bin/publish-core.mjs",
-      "sha256": "582c020e50ece8a369ab0c5b2f18d6efe16a54d7c46cd4b29d0a2d560ea07d6c"
+      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
     },
     {
       "path": "bin/publish.ps1",
@@ -40,7 +40,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "877d5117a0f79d8e28f833132dec8ec4a0e817cc28aa7cf84a96f1406f4e8c39"
+      "sha256": "0fb36ea8b8d07446a249d7052761704a4dd45ef5107c8793eba28ae9b69c74fb"
     },
     {
       "path": "README.md",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledgebase-internal-wiki.ts",
-      "sha256": "e306002728c2e69ae4a3a95b55892cb3385d9e1dcc22ddbc97233a504c17bf78"
+      "sha256": "25bde1025020b07e801436c663dd136046c4fd3337a47d98ee817c0ecfc6ed7f"
     },
     {
       "path": "src/api/paths.ts",
@@ -72,7 +72,7 @@
     },
     {
       "path": "src/http/client.ts",
-      "sha256": "8ae2b11449c875fba293e3e5a93c18c788cbbd92e402c1f64cd788b38a3f793c"
+      "sha256": "703617f015f375c3da14f021edfb827e14cede027981a24d3da2c215556c241c"
     },
     {
       "path": "src/http/index.ts",

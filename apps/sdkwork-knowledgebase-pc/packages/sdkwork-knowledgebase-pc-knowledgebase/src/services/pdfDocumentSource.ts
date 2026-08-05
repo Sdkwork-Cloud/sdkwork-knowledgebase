@@ -5,7 +5,7 @@ import {
 import {
   decodeBinaryResourcePayload,
   type HostAdapter,
-} from 'sdkwork-knowledgebase-pc-core/host/hostAdapter';
+} from 'sdkwork-knowledgebase-pc-core';
 
 export type PdfDocumentSource =
   | { kind: 'url'; url: string }

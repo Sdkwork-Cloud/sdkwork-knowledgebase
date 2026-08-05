@@ -443,6 +443,16 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
               AND organization_id = $4
               AND status = $5
               AND retry_count >= $6
+              AND id IN (
+                SELECT id
+                FROM kb_outbox_event
+                WHERE tenant_id = $3
+                  AND organization_id = $4
+                  AND status = $5
+                  AND retry_count >= $6
+                ORDER BY created_at ASC, id ASC
+                LIMIT $7
+              )
             "#,
         );
         let dead_lettered = sqlx::query(sqlx::AssertSqlSafe(dead_letter_query.as_str()))
@@ -452,6 +462,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             .bind(organization_id)
             .bind(OUTBOX_STATUS_FAILED)
             .bind(max_retry_count)
+            .bind(limit)
             .execute(&mut *transaction)
             .await
             .map_err(sqlx_error)?

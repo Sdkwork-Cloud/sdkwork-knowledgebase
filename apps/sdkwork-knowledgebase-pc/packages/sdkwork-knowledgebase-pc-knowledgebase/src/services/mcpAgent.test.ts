@@ -69,7 +69,10 @@ describe('MCP agent execution boundary', () => {
     const source = readSource('../AiAssistantPanel.tsx');
 
     expect(source).toContain('resolveUserFacingErrorMessage');
-    expect(source).toContain('McpAgentService.processUserQuery');
+    // Quick-tool chips are honestly disabled (no fabricated success, no guaranteed
+    // failure path): the panel must not invoke the unavailable MCP service at all.
+    expect(source).not.toContain('McpAgentService.processUserQuery');
+    expect(source).toContain('comingSoon');
     expect(source).not.toMatch(
       /shouldUseKnowledgebaseDemoFallback|status:\s*'success'|<insert_to_note>|setTimeout|setInterval/,
     );

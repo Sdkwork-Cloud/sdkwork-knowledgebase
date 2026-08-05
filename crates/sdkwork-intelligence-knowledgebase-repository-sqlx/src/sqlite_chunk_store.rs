@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::{
     CreateKnowledgeChunkRecord, KnowledgeChunkStore, KnowledgeChunkStoreError,
 };
@@ -19,6 +20,7 @@ pub struct SqliteKnowledgeChunkStore {
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
+    database_engine: DatabaseEngine,
 }
 
 impl SqliteKnowledgeChunkStore {
@@ -60,7 +62,15 @@ impl SqliteKnowledgeChunkStore {
             organization_id,
             id_generator,
             keyword_backend,
+            database_engine: DatabaseEngine::Sqlite,
         }
+    }
+
+    /// Selects the SQL timestamp dialect used by chunk transactions so PostgreSQL sessions
+    /// bind timestamps through the typed CAST path instead of implicit text conversion.
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.database_engine = database_engine;
+        self
     }
 }
 
@@ -77,6 +87,9 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             self.organization_id,
             &self.id_generator,
             self.keyword_backend,
+            crate::db::sql_timestamp::SqlTimestampDialect::from_database_engine(
+                self.database_engine,
+            ),
             document_version_id,
             chunks,
         )

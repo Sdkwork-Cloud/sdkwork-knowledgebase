@@ -270,6 +270,7 @@ pub async fn replace_version_chunks_with_pool(
     organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
+    timestamp_dialect: SqlTimestampDialect,
     document_version_id: u64,
     chunks: Vec<CreateKnowledgeChunkRecord>,
 ) -> Result<usize, KnowledgeChunkStoreError> {
@@ -284,7 +285,7 @@ pub async fn replace_version_chunks_with_pool(
             organization_id,
             id_generator,
             keyword_backend,
-            timestamp_dialect: SqlTimestampDialect::default(),
+            timestamp_dialect,
             document_version_id,
         },
         &chunks,

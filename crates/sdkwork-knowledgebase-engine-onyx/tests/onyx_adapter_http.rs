@@ -6,6 +6,11 @@ use sdkwork_knowledgebase_engine_onyx::{OnyxConnectorConfig, OnyxKnowledgeEngine
 use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+// Wiremock fixtures run on loopback; the provider SSRF protection fails closed unless
+// this explicit test-only allowance is set (never set it in a deployed environment).
+fn allow_test_loopback() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_PROVIDER_RUNTIME_ALLOW_LOOPBACK", "1");
+}
 
 async fn assert_onyx_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
     let mock_server = MockServer::start().await;
@@ -25,13 +30,13 @@ async fn assert_onyx_health(upstream_status: u16, expected: KnowledgeEngineHealt
 
 #[tokio::test]
 async fn onyx_health_maps_upstream_availability() {
-    assert_onyx_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();    assert_onyx_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_onyx_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]
 async fn onyx_search_maps_unified_search_results() {
-    let mock_server = MockServer::start().await;
+    allow_test_loopback();    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/search"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -73,7 +78,7 @@ async fn onyx_search_maps_unified_search_results() {
 
 #[tokio::test]
 async fn onyx_read_document_uses_open_urls() {
-    let mock_server = MockServer::start().await;
+    allow_test_loopback();    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/open_urls"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

@@ -64,7 +64,10 @@ Derived copies are never edited as competing contract authorities.
 - **External knowledge Providers**: `kb_provider_binding` is the sole tenant/organization/space
   selection authority. `sdkwork-knowledgebase-provider-runtime` owns outbound target policy,
   deadlines, bounded retries, `Retry-After`, circuit breaking, bulkheads, response limits, trace
-  propagation, redaction, and bounded-cardinality Provider metrics. Source rows never select a
+  propagation, redaction, and bounded-cardinality Provider metrics. Provider origin hosts are
+  DNS-resolved, validated as public (private/loopback/link-local/metadata ranges fail closed), and
+  pinned on the HTTP client, so a rebinding DNS record cannot redirect provider traffic into an
+  internal network. Source rows never select a
   Provider. `KnowledgeEngineSpaceResolver` returns a `KnowledgeEngineExecutionHandle`; search,
   read, and list validate immutable request-derived identity, scope, binding, trace, and deadline
   before engine execution. Adapters revalidate request tenant/space before HTTP, and external sync
@@ -85,7 +88,11 @@ Derived copies are never edited as competing contract authorities.
   panic and error isolation: one slow webhook or panicking phase can delay only its own domain,
   never starve the others. A phase that exceeds its budget (`SDKWORK_KNOWLEDGEBASE_WORKER_PHASE_TIMEOUT_SECONDS`,
   default 60 s) keeps running in the background and is reaped by later ticks (at most one instance
-  per phase). Missed ticks are skipped, never burst-caught-up.
+  per phase). Missed ticks are skipped, never burst-caught-up. Wiki domains advance independent
+  in-memory cursors: a backfill candidate that fails is retried with exponential cooldown
+  (30 s doubling to a 1 h cap) instead of stalling the rest of the domain, and a Drive event
+  checkpoint with retried head events parks the consumer cursor until its stream catches up or
+  the event dead-letters.
 - Outbox delivery failures are scheduled with exponential backoff
   (30 s doubling to a 1 h cap, stored as `next_attempt_at`) so dead webhooks are not hammered every
   poll interval; events that exhaust `SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES` move to the
@@ -108,8 +115,12 @@ Derived copies are never edited as competing contract authorities.
   module bootstrap. `SDKWORK_DATABASE_MAX_CONNECTIONS` is one combined process budget split between
   one scoped typed `PgPool` and one scoped `AnyPool` compatibility pool; odd budgets favor the typed
   pool and values below two fail startup. Drive, pgvector, and cloud provider resolution reuse the
-  typed handle. The remaining `AnyPool` compatibility driver must be removed before the first
-  commercial production release; see
+  typed handle. In processes without a process-shared pool (application public ingress), the
+  one-shot migration pool is closed right after bootstrap so the budget is held only by the business
+  `AnyPool` and the Drive pool; the `AnyPool` applies the resolved `ssl_mode` to its connection URL
+  and shares the typed pool's 10 s acquire timeout, so TLS policy cannot silently downgrade to
+  plaintext. Connections additionally set a 30 s `statement_timeout`. The remaining `AnyPool`
+  compatibility driver must be removed before the first commercial production release; see
   [ADR-20260730-knowledgebase-process-shared-database-pool.md](../decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md).
 - Media tasks consume the generated `cloudrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - WeChat account/applet configuration is a tenant-scoped Drive object with a 1 MiB read/write
@@ -140,7 +151,7 @@ Derived copies are never edited as competing contract authorities.
   public HTTP/TLS/cache execution. See
   [ADR-20260721-live-mounted-wiki-publication.md](../decisions/ADR-20260721-live-mounted-wiki-publication.md)
   and [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md).
-- Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
+- Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path. `page_size` is validated (rejected, not clamped) identically across app and backend surfaces, and all three business API surfaces enforce an explicit 1 MiB transport-level request body limit so oversized payloads fail before JSON deserialization.
 - The compliance audit export is a deliberately bounded synchronous exception: it loads at most
   5,000 events plus one overflow probe and returns `413 audit_export_limit_exceeded` when the result
   cannot be complete. It never returns a silently truncated archive. Larger data-subject exports
@@ -215,6 +226,10 @@ Derived copies are never edited as competing contract authorities.
 - Backend OpenAPI declares `x-sdkwork-permission: knowledge.platform.manage` on all protected operations
 - Public ingress exposes API paths only; `/metrics` is scraped via ServiceMonitor inside the cluster
 - PC production builds disable demo/mock API fallbacks
+- Space and browser read paths are fail-closed: without an injected access control the operation is
+  rejected (never degraded to tenant-scoped visibility), and an anonymous browser identity is
+  rejected instead of falling back to an `anonymous` actor. Grant/revoke paths enforce the same
+  requirement symmetrically.
 - Knowledgebase, Official Account, and Applet configuration surfaces expose icon/emoji selection,
   not browser Data URL avatar persistence. Custom media remains unavailable until an app-api/Drive
   contract can store a stable managed object reference and resolve bounded delivery URLs. WeChat

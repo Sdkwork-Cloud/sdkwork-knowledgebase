@@ -7,12 +7,12 @@
     "language": "rust",
     "sdkType": "custom",
     "protocol": "http",
-    "packageName": "sdkwork-knowledgebase-internal-sdk-generated-rust"
+    "packageName": null
   },
   "generatedFiles": [
     {
       "path": "bin/publish-core.mjs",
-      "sha256": "582c020e50ece8a369ab0c5b2f18d6efe16a54d7c46cd4b29d0a2d560ea07d6c"
+      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
     },
     {
       "path": "bin/publish.ps1",
@@ -24,7 +24,7 @@
     },
     {
       "path": "Cargo.toml",
-      "sha256": "867cc4a822618b493973bcfbc30b82e651c5dce44f4bf0fc8312a32ee14ef149"
+      "sha256": "9ee409d5aeac526d3a3cbfc48a96e69bd2ac0b28e7c5bd6766d68b6826f0e892"
     },
     {
       "path": "CHANGELOG.md",
@@ -36,11 +36,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "a78eb5df3aad25a7c3a83275888c254f06113520681c54a1344ac2a2da26b342"
+      "sha256": "6e87bc3b88b320b2429c3390ea8a0c74430d52432b28f01f1dbd57334aeed7a5"
     },
     {
       "path": "sdkwork-sdk.json",
-      "sha256": "da029fb3cecac2e2bfa023f104f14f9934b9b87f2a3ddc48a9d1f8da9add5e04"
+      "sha256": "1e46d72309d7e85df85af73b1df17e57d7eb20932765d2b3b02a457e757e171c"
     },
     {
       "path": "src/api/base.rs",
@@ -48,7 +48,7 @@
     },
     {
       "path": "src/api/knowledgebase_internal_wiki.rs",
-      "sha256": "81417cf42f1ba4b34a91466ef74415e57a0571f5cf33e3f72fa928208a921de0"
+      "sha256": "6dfbfdc9f722b16a61c8202b65bbc3da0f67b457cd4991473a0d3e63c42e0b09"
     },
     {
       "path": "src/api/mod.rs",
@@ -64,11 +64,11 @@
     },
     {
       "path": "src/http/client.rs",
-      "sha256": "f48fde7a4844ee08e0fa4074d536f5038236b2f17ef22f62f8d35e18e41b1cff"
+      "sha256": "d609cf96b01b811dfa07fb5e704aaf87f2e60e2bff9648a6bfa0b2807ffe909b"
     },
     {
       "path": "src/http/mod.rs",
-      "sha256": "fdf16d487ebd9180fb423d5630d4401ff18180721b86636dec085ad83940bb3d"
+      "sha256": "d09ef1f29c3fa0e631fc4f7287fc93dc7d3cee7e7261ac85091852a09243e90a"
     },
     {
       "path": "src/lib.rs",

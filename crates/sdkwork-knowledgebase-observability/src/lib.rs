@@ -50,6 +50,10 @@ static REQUESTS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_ERRORS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_AUTH_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_DURATION_MS_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Fixed latency buckets (ms) so P95/P99 retrieval latency targets are measurable from
+/// Prometheus histograms instead of a bare cumulative counter.
+const DURATION_BUCKETS_MS: [u64; 11] = [5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000];
+static REQUEST_DURATION_BUCKETS: [AtomicU64; 11] = [const { AtomicU64::new(0) }; 11];
 static HEALTH_STATUS: AtomicU64 = AtomicU64::new(1);
 static OUTBOX_REQUEUED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static OUTBOX_PUBLISHED_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -140,11 +144,42 @@ pub async fn metrics_middleware(request: Request, next: Next) -> Response {
     ) {
         REQUEST_AUTH_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
     }
-    REQUEST_DURATION_MS_TOTAL.fetch_add(
-        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-        Ordering::Relaxed,
-    );
+    let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    REQUEST_DURATION_MS_TOTAL.fetch_add(elapsed_ms, Ordering::Relaxed);
+    for (index, bucket) in DURATION_BUCKETS_MS.iter().enumerate() {
+        if elapsed_ms <= *bucket {
+            REQUEST_DURATION_BUCKETS[index].fetch_add(1, Ordering::Relaxed);
+        }
+    }
     response
+}
+
+fn render_duration_histogram() -> String {
+    let mut body = String::new();
+    for (index, bucket) in DURATION_BUCKETS_MS.iter().enumerate() {
+        body.push_str(&format!(
+            "knowledge_api_request_duration_ms_bucket{{le=\"{bucket}\"}} {}
+",
+            REQUEST_DURATION_BUCKETS[index].load(Ordering::Relaxed)
+        ));
+    }
+    let total = REQUESTS_TOTAL.load(Ordering::Relaxed);
+    body.push_str(&format!(
+        "knowledge_api_request_duration_ms_bucket{{le=\"+Inf\"}} {}
+",
+        total
+    ));
+    body.push_str(&format!(
+        "knowledge_api_request_duration_ms_sum {}
+",
+        REQUEST_DURATION_MS_TOTAL.load(Ordering::Relaxed)
+    ));
+    body.push_str(&format!(
+        "knowledge_api_request_duration_ms_count {}
+",
+        total
+    ));
+    body
 }
 
 pub async fn metrics_handler() -> impl IntoResponse {
@@ -160,7 +195,10 @@ pub async fn metrics_handler() -> impl IntoResponse {
          knowledge_api_auth_failures_total {}\n\
          # HELP knowledge_api_request_duration_ms_total Cumulative request duration in milliseconds.\n\
          # TYPE knowledge_api_request_duration_ms_total counter\n\
-         knowledge_api_request_duration_ms_total {}\n\
+         knowledge_api_request_duration_ms_total {}\n\\n\
+         # HELP knowledge_api_request_duration_ms Request duration histogram (ms) for P95/P99 latency targets.\n\
+         # TYPE knowledge_api_request_duration_ms histogram\n\
+         {}{}\n\
          # HELP knowledgebase_health_status Service readiness gauge (1=ready, 0=not ready).\n\
          # TYPE knowledgebase_health_status gauge\n\
          knowledgebase_health_status {}\n\
@@ -180,6 +218,8 @@ pub async fn metrics_handler() -> impl IntoResponse {
         REQUEST_ERRORS_TOTAL.load(Ordering::Relaxed),
         REQUEST_AUTH_FAILURES_TOTAL.load(Ordering::Relaxed),
         REQUEST_DURATION_MS_TOTAL.load(Ordering::Relaxed),
+        render_duration_histogram(),
+        "",
         HEALTH_STATUS.load(Ordering::Relaxed),
         OUTBOX_REQUEUED_TOTAL.load(Ordering::Relaxed),
         OUTBOX_PUBLISHED_TOTAL.load(Ordering::Relaxed),
