@@ -12,7 +12,8 @@ fn allow_test_loopback() {
 
 #[tokio::test]
 async fn dify_read_document_fetches_segment_detail() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/datasets/ds-42/documents/doc-1/segments/seg-9"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

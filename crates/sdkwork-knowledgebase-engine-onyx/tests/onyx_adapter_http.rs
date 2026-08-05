@@ -30,13 +30,15 @@ async fn assert_onyx_health(upstream_status: u16, expected: KnowledgeEngineHealt
 
 #[tokio::test]
 async fn onyx_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_onyx_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_onyx_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_onyx_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]
 async fn onyx_search_maps_unified_search_results() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/search"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -78,7 +80,8 @@ async fn onyx_search_maps_unified_search_results() {
 
 #[tokio::test]
 async fn onyx_read_document_uses_open_urls() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/open_urls"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

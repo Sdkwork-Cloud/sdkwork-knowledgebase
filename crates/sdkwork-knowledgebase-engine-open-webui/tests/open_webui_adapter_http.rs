@@ -33,13 +33,15 @@ async fn assert_open_webui_health(upstream_status: u16, expected: KnowledgeEngin
 
 #[tokio::test]
 async fn open_webui_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_open_webui_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_open_webui_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_open_webui_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]
 async fn open_webui_search_uses_configured_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/v1/retrieval/query/collection"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -84,7 +86,8 @@ async fn open_webui_search_uses_configured_remote_resource_id() {
 
 #[tokio::test]
 async fn open_webui_read_document_resolves_chunk_from_query_collection() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/v1/retrieval/query/collection"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

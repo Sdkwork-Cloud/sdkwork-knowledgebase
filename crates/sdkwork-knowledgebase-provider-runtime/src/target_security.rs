@@ -17,7 +17,16 @@ pub(crate) async fn resolve_public_socket_addr(
     connect_timeout: std::time::Duration,
 ) -> Result<SocketAddr, ProviderError> {
     let port = url.port_or_known_default().unwrap_or(443);
-    let host = url.host_str().ok_or_else(|| target_error("provider URL host is required"))?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| target_error("provider URL host is required"))?;
+    // Hostname-layer SSRF protection: loopback and metadata hostnames fail
+    // closed before any DNS resolution happens.
+    if is_blocked_hostname(host) {
+        return Err(target_error(
+            "provider URL hostname is not allowed (loopback, metadata, or internal)",
+        ));
+    }
     // Literal IP hosts are validated directly; domain hosts go through DNS with the same
     // public-address filter, so metadata endpoints and private ranges always fail closed.
     if let Ok(ip) = host.parse::<IpAddr>() {
@@ -25,13 +34,11 @@ pub(crate) async fn resolve_public_socket_addr(
     }
 
     let authority = format!("{host}:{port}");
-    let mut addresses = tokio::time::timeout(
-        connect_timeout,
-        tokio::net::lookup_host(authority.as_str()),
-    )
-    .await
-    .map_err(|_| target_error("provider URL DNS lookup timed out"))?
-    .map_err(|_| target_error("provider URL DNS lookup failed"))?;
+    let mut addresses =
+        tokio::time::timeout(connect_timeout, tokio::net::lookup_host(authority.as_str()))
+            .await
+            .map_err(|_| target_error("provider URL DNS lookup timed out"))?
+            .map_err(|_| target_error("provider URL DNS lookup failed"))?;
     addresses
         .find(|address| !is_blocked_ip(address.ip()))
         .ok_or_else(|| {
@@ -158,7 +165,9 @@ mod tests {
     fn public_addresses_are_allowed() {
         assert!(!is_blocked_ip(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8))));
         assert!(!is_blocked_ip(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))));
-        assert!(!is_blocked_ip(IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 0))));
+        assert!(!is_blocked_ip(IpAddr::V6(Ipv6Addr::new(
+            0x2606, 0x4700, 0, 0, 0, 0, 0, 0
+        ))));
     }
 
     #[test]
@@ -185,7 +194,11 @@ mod tests {
     fn ipv6_non_global_prefixes_are_blocked() {
         assert!(is_blocked_ipv6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 1)));
         assert!(is_blocked_ipv6(Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 1)));
-        assert!(is_blocked_ipv6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)));
-        assert!(!is_blocked_ipv6(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 0)));
+        assert!(is_blocked_ipv6(Ipv6Addr::new(
+            0x2001, 0x0db8, 0, 0, 0, 0, 0, 1
+        )));
+        assert!(!is_blocked_ipv6(Ipv6Addr::new(
+            0x2606, 0x4700, 0, 0, 0, 0, 0, 0
+        )));
     }
 }

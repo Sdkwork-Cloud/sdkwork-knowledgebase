@@ -109,11 +109,12 @@ impl<'a> OkfBundleLinterService<'a> {
             // never silently truncates on large spaces.
             let inbound =
                 crate::ports::knowledge_okf_concept_link_store::list_all_inbound_link_targets(
-                    link_store,
-                    space_id,
+                    link_store, space_id,
                 )
                 .await?;
-            let inbound_set = inbound.into_iter().collect::<std::collections::BTreeSet<_>>();
+            let inbound_set = inbound
+                .into_iter()
+                .collect::<std::collections::BTreeSet<_>>();
             let mut orphans = known
                 .iter()
                 .filter(|concept_id| !inbound_set.contains(*concept_id))

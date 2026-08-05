@@ -3,9 +3,9 @@
 pub mod agent_implementation;
 pub mod agent_runtime;
 pub mod async_bridge;
+pub mod client;
 pub mod cloud_router;
 pub mod cloud_router_embeddings;
-pub mod client;
 pub mod external_space_engine_provider;
 pub mod knowledge_access;
 mod mapper;
@@ -20,6 +20,7 @@ pub use agent_implementation::{
     validate_registered_agent_implementation, CONTRACT_MODEL_PROVIDER_ID,
 };
 pub use agent_runtime::{build_knowledge_agent_runtime, KnowledgeAgentRuntimeBuildRequest};
+pub use client::KnowledgebaseRetrievalClient;
 pub use cloud_router::{
     is_rig_model_provider, resolve_cloud_router_client_from_env, CloudRouterChatModelProvider,
     CLOUDROUTER_CHAT_COMPLETION_METHOD, CLOUDROUTER_OPEN_HTTP_URL_ENV, CLOUDROUTER_OPEN_SDK_CRATE,
@@ -30,7 +31,6 @@ pub use cloud_router_embeddings::{
     CloudRouterEmbeddingClient, CLOUDROUTER_EMBEDDINGS_METHOD,
     DEFAULT_CLOUDROUTER_EMBEDDING_MODEL_ID,
 };
-pub use client::KnowledgebaseRetrievalClient;
 pub use external_space_engine_provider::{
     engine_hit_to_search_result, SpaceEngineKnowledgeProvider,
 };

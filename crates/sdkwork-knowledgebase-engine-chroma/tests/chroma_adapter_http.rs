@@ -25,7 +25,8 @@ fn collection_base_path(collection_id: &str) -> String {
 
 #[tokio::test]
 async fn chroma_search_uses_configured_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     Mock::given(method("POST"))
         .and(path(format!(
@@ -73,7 +74,8 @@ async fn chroma_search_uses_configured_remote_resource_id() {
 
 #[tokio::test]
 async fn chroma_read_document_fetches_record_by_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     Mock::given(method("POST"))
         .and(path(format!("{}/get", collection_base_path(collection_id))))
@@ -116,7 +118,8 @@ async fn chroma_read_document_fetches_record_by_id() {
 
 #[tokio::test]
 async fn chroma_list_documents_is_explicitly_unsupported() {
-    allow_test_loopback();    let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
+    allow_test_loopback();
+    let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     let config = ChromaConnectorConfig {
         base_url: "http://localhost:8000".to_string(),
         api_key: None,
@@ -162,6 +165,7 @@ async fn assert_chroma_health(upstream_status: u16, expected: KnowledgeEngineHea
 
 #[tokio::test]
 async fn chroma_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_chroma_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_chroma_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_chroma_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }

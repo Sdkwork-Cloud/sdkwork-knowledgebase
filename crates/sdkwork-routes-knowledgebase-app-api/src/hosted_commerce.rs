@@ -340,7 +340,10 @@ fn image_quality(style_mode: Option<&str>) -> ApiResult<Option<String>> {
     }
 }
 
-fn media_provider_error(code: &'static str, error: &cloudrouter_open_sdk::SdkworkError) -> ApiError {
+fn media_provider_error(
+    code: &'static str,
+    error: &cloudrouter_open_sdk::SdkworkError,
+) -> ApiError {
     tracing::warn!(error = %error, "Cloud Router media request failed");
     ApiError::new(
         axum::http::StatusCode::BAD_GATEWAY,

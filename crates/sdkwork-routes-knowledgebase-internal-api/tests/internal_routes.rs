@@ -17,10 +17,10 @@ use sdkwork_intelligence_knowledgebase_service::{
         WikiPublicPublicationMetadata, WikiPublicRouteResolution, WikiResolvedPublicPage,
     },
 };
-use sdkwork_web_core::access_token_jwt;
 use sdkwork_routes_knowledgebase_internal_api::{
     build_router_with_services, KnowledgebaseDriveEventReceiver, KnowledgebaseWikiPublicProvider,
 };
+use sdkwork_web_core::access_token_jwt;
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 

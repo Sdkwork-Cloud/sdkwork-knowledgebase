@@ -20,7 +20,8 @@ fn allow_test_loopback() {
 
 #[tokio::test]
 async fn weaviate_search_uses_configured_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     let class_name = "KnowledgeChunk";
     Mock::given(method("POST"))
         .and(path("/v1/graphql"))
@@ -70,7 +71,8 @@ async fn weaviate_search_uses_configured_remote_resource_id() {
 
 #[tokio::test]
 async fn weaviate_read_document_fetches_object_by_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     let class_name = "KnowledgeChunk";
     Mock::given(method("GET"))
         .and(path(format!("/v1/objects/{class_name}/rec-9")))
@@ -112,7 +114,8 @@ async fn weaviate_read_document_fetches_object_by_id() {
 
 #[tokio::test]
 async fn weaviate_list_documents_is_explicitly_unsupported() {
-    allow_test_loopback();    let config = WeaviateConnectorConfig {
+    allow_test_loopback();
+    let config = WeaviateConnectorConfig {
         base_url: "http://localhost:8080".to_string(),
         api_key: None,
         default_class_name: Some("KnowledgeChunk".to_string()),
@@ -157,6 +160,7 @@ async fn assert_weaviate_health(upstream_status: u16, expected: KnowledgeEngineH
 
 #[tokio::test]
 async fn weaviate_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_weaviate_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_weaviate_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_weaviate_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }

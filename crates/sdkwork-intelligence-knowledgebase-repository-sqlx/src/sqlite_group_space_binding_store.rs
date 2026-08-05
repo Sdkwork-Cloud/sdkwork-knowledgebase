@@ -1968,15 +1968,16 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND projection_lease_until >= {active_projection_expiry_expr}
             "#,
         );
-        let active_projection_row = sqlx::query(sqlx::AssertSqlSafe(active_projection_query.as_str()))
-            .bind(group_to_i64("tenant_id", scope.tenant_id)?)
-            .bind(group_to_i64("organization_id", scope.organization_id)?)
-            .bind(group_to_i64("binding_id", binding.id)?)
-            .bind(&now)
-            .bind(MEMBERSHIP_PROJECTION_PENDING)
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(group_sqlx_error)?;
+        let active_projection_row =
+            sqlx::query(sqlx::AssertSqlSafe(active_projection_query.as_str()))
+                .bind(group_to_i64("tenant_id", scope.tenant_id)?)
+                .bind(group_to_i64("organization_id", scope.organization_id)?)
+                .bind(group_to_i64("binding_id", binding.id)?)
+                .bind(&now)
+                .bind(MEMBERSHIP_PROJECTION_PENDING)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(group_sqlx_error)?;
         let active_projection_count: i64 = active_projection_row
             .try_get("projection_count")
             .map_err(group_sqlx_error)?;

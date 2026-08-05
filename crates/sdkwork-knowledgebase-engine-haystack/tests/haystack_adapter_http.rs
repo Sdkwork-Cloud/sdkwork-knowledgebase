@@ -19,7 +19,8 @@ fn allow_test_loopback() {
 
 #[tokio::test]
 async fn haystack_search_uses_configured_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/retrieval_pipeline/run"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -68,7 +69,8 @@ async fn haystack_search_uses_configured_remote_resource_id() {
 
 #[tokio::test]
 async fn haystack_read_document_resolves_chunk_from_pipeline_run() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/retrieval_pipeline/run"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -115,7 +117,8 @@ async fn haystack_read_document_resolves_chunk_from_pipeline_run() {
 
 #[tokio::test]
 async fn haystack_list_documents_is_explicitly_unsupported() {
-    allow_test_loopback();    let config = HaystackConnectorConfig {
+    allow_test_loopback();
+    let config = HaystackConnectorConfig {
         base_url: "http://localhost:1416".to_string(),
         api_key: None,
         default_pipeline: Some("retrieval_pipeline".to_string()),
@@ -162,13 +165,15 @@ async fn assert_haystack_health(upstream_status: u16, expected: KnowledgeEngineH
 
 #[tokio::test]
 async fn haystack_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_haystack_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_haystack_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_haystack_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]
 async fn haystack_cloud_search_uses_configured_workspace_and_remote_resource() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path(
             "/api/v1/workspaces/ws-space-42/pipelines/cloud_pipeline/search",

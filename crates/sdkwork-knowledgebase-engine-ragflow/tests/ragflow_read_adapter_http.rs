@@ -12,7 +12,8 @@ fn allow_test_loopback() {
 
 #[tokio::test]
 async fn ragflow_read_document_fetches_chunk_detail() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path(
             "/api/v1/datasets/ds-42/documents/doc-1/chunks/chunk-9",

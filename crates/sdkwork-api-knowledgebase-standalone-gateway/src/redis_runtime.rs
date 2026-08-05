@@ -148,7 +148,9 @@ fn redis_password() -> Result<Option<String>, String> {
         .filter(|value| !value.is_empty())
     {
         let password = std::fs::read_to_string(&file_path)
-            .map_err(|error| format!("{REDIS_PASSWORD_FILE_ENV} {file_path:?} cannot be read: {error}"))?
+            .map_err(|error| {
+                format!("{REDIS_PASSWORD_FILE_ENV} {file_path:?} cannot be read: {error}")
+            })?
             .trim()
             .to_owned();
         if password.is_empty() {
@@ -213,13 +215,10 @@ mod tests {
 
     #[test]
     fn disabled_without_configuration() {
-        with_env(
-            &[(REDIS_ENABLED_ENV, "0"), (REDIS_URL_ENV, "")],
-            || {
-                let config = RedisRuntimeConfig::from_env().expect("env resolution");
-                assert!(config.is_none());
-            },
-        );
+        with_env(&[(REDIS_ENABLED_ENV, "0"), (REDIS_URL_ENV, "")], || {
+            let config = RedisRuntimeConfig::from_env().expect("env resolution");
+            assert!(config.is_none());
+        });
     }
 
     #[test]

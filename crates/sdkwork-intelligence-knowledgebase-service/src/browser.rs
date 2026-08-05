@@ -74,9 +74,9 @@ impl<'a> KnowledgeBrowserService<'a> {
         let space = self.spaces.get_space(request.space_id).await?;
         // Fail-closed: browsing without a configured access control is rejected instead of
         // silently degrading to tenant-scoped visibility only.
-        let access_control = self.access_control.ok_or_else(|| {
-            KnowledgeBrowserServiceError::AccessControlNotConfigured
-        })?;
+        let access_control = self
+            .access_control
+            .ok_or_else(|| KnowledgeBrowserServiceError::AccessControlNotConfigured)?;
         let access = access.ok_or_else(|| {
             KnowledgeBrowserServiceError::InvalidRequest(
                 "authenticated browser access context is required".to_string(),

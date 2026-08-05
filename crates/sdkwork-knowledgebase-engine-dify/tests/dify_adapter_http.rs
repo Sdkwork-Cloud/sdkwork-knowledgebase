@@ -37,7 +37,8 @@ async fn assert_dify_health(upstream_status: u16, expected: KnowledgeEngineHealt
 
 #[tokio::test]
 async fn dify_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_dify_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_dify_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_dify_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
@@ -69,7 +70,8 @@ fn active_binding(remote_resource_id: &str) -> KnowledgeEngineProviderBinding {
 
 #[tokio::test]
 async fn dify_search_uses_binding_owned_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/datasets/binding-dataset/retrieve"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

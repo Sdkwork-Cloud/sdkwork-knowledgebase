@@ -305,7 +305,9 @@ async fn run_group_archive_phase(
     runtime: &KnowledgebaseRuntime,
     config: &MaintenanceConfig,
 ) -> usize {
-    runtime.process_resumable_group_space_archives(config.group_archive_limit).await
+    runtime
+        .process_resumable_group_space_archives(config.group_archive_limit)
+        .await
 }
 
 async fn run_wiki_backfill_phase(
@@ -521,7 +523,7 @@ async fn run_wiki_delivery_phase(
 ) -> Result<
     sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult,
     MaintenanceTickError,
-> {
+>{
     if !renew {
         return Ok(
             sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult {
@@ -969,16 +971,14 @@ mod tests {
             501,
             WikiBackfillCooldown {
                 failures: 1,
-                retry_after: std::time::Instant::now()
-                    + std::time::Duration::from_secs(60),
+                retry_after: std::time::Instant::now() + std::time::Duration::from_secs(60),
             },
         );
         cooldowns.insert(
             502,
             WikiBackfillCooldown {
                 failures: 3,
-                retry_after: std::time::Instant::now()
-                    - std::time::Duration::from_secs(1),
+                retry_after: std::time::Instant::now() - std::time::Duration::from_secs(1),
             },
         );
         let active = active_backfill_cooldown_space_ids(&cooldowns);

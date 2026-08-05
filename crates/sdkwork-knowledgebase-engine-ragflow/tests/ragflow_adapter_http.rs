@@ -36,13 +36,15 @@ async fn assert_ragflow_health(upstream_status: u16, expected: KnowledgeEngineHe
 
 #[tokio::test]
 async fn ragflow_health_maps_upstream_availability() {
-    allow_test_loopback();    assert_ragflow_health(200, KnowledgeEngineHealthStatus::Available).await;
+    allow_test_loopback();
+    assert_ragflow_health(200, KnowledgeEngineHealthStatus::Available).await;
     assert_ragflow_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]
 async fn ragflow_search_uses_configured_remote_resource_id() {
-    allow_test_loopback();    let mock_server = MockServer::start().await;
+    allow_test_loopback();
+    let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/v1/retrieval"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

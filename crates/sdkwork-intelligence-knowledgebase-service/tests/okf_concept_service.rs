@@ -1500,7 +1500,11 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
         let limit = limit as usize;
         let has_more = targets.len() > limit;
         targets.truncate(limit);
-        let next_cursor = if has_more { targets.last().cloned() } else { None };
+        let next_cursor = if has_more {
+            targets.last().cloned()
+        } else {
+            None
+        };
         Ok(InboundLinkTargetsPage {
             targets,
             next_cursor,
@@ -1529,13 +1533,28 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
             })
             .collect::<Vec<_>>();
         edges.sort_by(|left, right| {
-            (&left.from_concept_id, &left.to_concept_id, &left.anchor_text)
-                .cmp(&(&right.from_concept_id, &right.to_concept_id, &right.anchor_text))
+            (
+                &left.from_concept_id,
+                &left.to_concept_id,
+                &left.anchor_text,
+            )
+                .cmp(&(
+                    &right.from_concept_id,
+                    &right.to_concept_id,
+                    &right.anchor_text,
+                ))
         });
         if let Some(cursor) = after {
             edges.retain(|edge| {
-                (&edge.from_concept_id, &edge.to_concept_id, &edge.anchor_text)
-                    > (&cursor.from_concept_id, &cursor.to_concept_id, &cursor.anchor_text)
+                (
+                    &edge.from_concept_id,
+                    &edge.to_concept_id,
+                    &edge.anchor_text,
+                ) > (
+                    &cursor.from_concept_id,
+                    &cursor.to_concept_id,
+                    &cursor.anchor_text,
+                )
             });
         }
         let limit = limit as usize;

@@ -190,7 +190,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
         let has_more = rows.len() as i64 > limit;
-        let mut targets = rows
+        let targets = rows
             .into_iter()
             .take(limit as usize)
             .map(|row| row.try_get::<String, _>("to_concept_id"))
@@ -246,7 +246,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
         let has_more = rows.len() as i64 > limit;
-        let mut edges = rows
+        let edges = rows
             .into_iter()
             .take(limit as usize)
             .map(|row| {

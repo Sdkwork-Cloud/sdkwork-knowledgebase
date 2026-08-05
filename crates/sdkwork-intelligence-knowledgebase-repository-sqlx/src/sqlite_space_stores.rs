@@ -1334,7 +1334,9 @@ fn okf_bundle_file_id_error(
 
 fn space_fetch_error(space_id: u64, error: sqlx::Error) -> KnowledgeSpaceStoreError {
     if matches!(error, sqlx::Error::RowNotFound) {
-        return KnowledgeSpaceStoreError::NotFound(format!("knowledge space {space_id} was not found"));
+        return KnowledgeSpaceStoreError::NotFound(format!(
+            "knowledge space {space_id} was not found"
+        ));
     }
     space_sqlx_error(error)
 }

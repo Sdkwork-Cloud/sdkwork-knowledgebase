@@ -148,12 +148,16 @@ fn effective_environment() -> String {
     {
         return value;
     }
-    ["SDKWORK_ENVIRONMENT", "SDKWORK_IAM_ENVIRONMENT", "SDKWORK_IM_ENVIRONMENT"]
-        .iter()
-        .find_map(|key| std::env::var(key).ok())
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "production".to_owned())
+    [
+        "SDKWORK_ENVIRONMENT",
+        "SDKWORK_IAM_ENVIRONMENT",
+        "SDKWORK_IM_ENVIRONMENT",
+    ]
+    .iter()
+    .find_map(|key| std::env::var(key).ok())
+    .map(|value| value.trim().to_ascii_lowercase())
+    .filter(|value| !value.is_empty())
+    .unwrap_or_else(|| "production".to_owned())
 }
 
 #[cfg(test)]
@@ -197,10 +201,7 @@ mod tests {
             || {
                 let environment = unify_process_environment();
                 assert_eq!(environment, "production");
-                assert_eq!(
-                    std::env::var("SDKWORK_ENVIRONMENT").unwrap(),
-                    "production"
-                );
+                assert_eq!(std::env::var("SDKWORK_ENVIRONMENT").unwrap(), "production");
             },
         );
     }

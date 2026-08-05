@@ -380,21 +380,18 @@ impl ProviderRuntime {
 
     pub fn new(config: ProviderRuntimeConfig) -> Result<Self, ProviderError> {
         config.validate()?;
-        let base_url = config
-            .allowed_origin
-            .to_url()
-            .map_err(|_| {
-                ProviderError::new(
-                    ProviderErrorCategory::Internal,
-                    ProviderOperation::Health,
-                    "unresolved",
-                    None,
-                    None,
-                    false,
-                    None,
-                    "provider origin URL cannot be reconstructed",
-                )
-            })?;
+        let base_url = config.allowed_origin.to_url().map_err(|_| {
+            ProviderError::new(
+                ProviderErrorCategory::Internal,
+                ProviderOperation::Health,
+                "unresolved",
+                None,
+                None,
+                false,
+                None,
+                "provider origin URL cannot be reconstructed",
+            )
+        })?;
         Ok(Self {
             client: OnceCell::new(),
             base_url,
@@ -886,8 +883,9 @@ async fn build_pinned_client(
     base_url: &Url,
     config: &ProviderRuntimeConfig,
 ) -> Result<Client, ProviderError> {
-    let socket = crate::target_security::resolve_public_socket_addr(base_url, config.connect_timeout)
-        .await?;
+    let socket =
+        crate::target_security::resolve_public_socket_addr(base_url, config.connect_timeout)
+            .await?;
     let mut builder = Client::builder()
         .connect_timeout(config.connect_timeout)
         .timeout(config.request_timeout)
