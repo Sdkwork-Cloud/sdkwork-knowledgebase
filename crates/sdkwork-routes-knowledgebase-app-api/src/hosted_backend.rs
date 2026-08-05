@@ -222,7 +222,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeSource>> {
         let cursor = parse_backend_cursor(cursor)?;
         let page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let (items, next_cursor, has_more) = self
             .runtime
             .source_store()
@@ -336,7 +346,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
         }
         let cursor = parse_backend_cursor(cursor)?;
         let page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let (items, next_cursor, has_more) = self
             .runtime
             .okf_candidate_store()
@@ -523,7 +543,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeOkfBundleFile>> {
         let cursor = parse_backend_cursor(cursor)?;
         let page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let (items, next_cursor, has_more) = self
             .runtime
             .okf_bundle_file_store()
@@ -692,7 +722,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeIndex>> {
         let cursor = parse_backend_cursor(cursor)?;
         let page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let (items, next_cursor, has_more) = self
             .runtime
             .index_store()
@@ -868,7 +908,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeRetrievalTrace>> {
         let cursor = parse_backend_cursor(cursor)?;
         let page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let (records, next_cursor, has_more) = self
             .runtime
             .retrieval_store()
@@ -1005,7 +1055,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderCredentialReference>> {
         let execution_context = self.provider_execution_context(context, None)?;
         let normalized_page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let page = self
             .runtime
             .knowledge_engine_provider_binding_service()
@@ -1092,7 +1152,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderBinding>> {
         let execution_context = self.provider_execution_context(context, Some(space_id))?;
         let normalized_page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let page = self
             .runtime
             .knowledge_engine_provider_binding_service()
@@ -1230,7 +1300,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderMigrationOperation>> {
         self.require_provider_migration_context(context, space_id)?;
         let normalized_page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let page = self
             .runtime
             .knowledge_engine_provider_migration_service()
@@ -1334,7 +1414,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
         page_size: Option<u32>,
     ) -> BackendApiResult<SdkWorkPageData<KnowledgeSpace>> {
         let normalized_page_size =
-            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size)
+            .map_err(|_| {
+                BackendApiError::new(
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "invalid_parameter",
+                    format!(
+                        "page_size must be between 1 and {}",
+                        sdkwork_utils_rust::MAX_LIST_PAGE_SIZE
+                    ),
+                )
+            })?;
         let cursor_id = sdkwork_routes_knowledgebase_backend_api::pagination::parse_u64_cursor(
             cursor.as_deref(),
         )

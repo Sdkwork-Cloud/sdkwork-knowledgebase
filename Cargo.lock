@@ -4768,6 +4768,7 @@ dependencies = [
  "sdkwork-knowledgebase-provider-secret-adapter",
  "sdkwork-knowledgebase-test-support",
  "sdkwork-knowledgebase-worker",
+ "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-routes-knowledgebase-internal-api",
  "sdkwork-routes-knowledgebase-open-api",
