@@ -1,4 +1,3 @@
-use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::KNOWLEDGE_UPLOAD_SESSION_TTL;
 use sdkwork_intelligence_knowledgebase_service::tenant_quota::{
     TenantQuotaExceeded, TenantQuotaKind,
@@ -11,34 +10,18 @@ const KNOWLEDGEBASE_QUOTA_LOCK_NAMESPACE: i64 = 0x4B42_5155_4F54_4100;
 
 pub(crate) async fn begin_tenant_quota_transaction(
     pool: &AnyPool,
-    database_engine: DatabaseEngine,
     tenant_id: i64,
     organization_id: i64,
 ) -> Result<Transaction<'static, Any>, sqlx::Error> {
     let mut transaction = pool.begin().await?;
-    match database_engine {
-        DatabaseEngine::Postgres => {
-            sqlx::query(
-                "SELECT pg_advisory_xact_lock(hashtextextended(CAST($1 AS TEXT) || ':' || CAST($2 AS TEXT), $3))",
-            )
-                .bind(tenant_id)
-                .bind(organization_id)
-                .bind(KNOWLEDGEBASE_QUOTA_LOCK_NAMESPACE)
-                .execute(&mut *transaction)
-                .await?;
-        }
-        DatabaseEngine::Sqlite => {
-            // A write statement acquires SQLite's cross-connection write reservation
-            // before quota usage is read. The impossible id keeps the lock rowless.
-            sqlx::query(
-                "UPDATE kb_ingestion_job SET version = version WHERE tenant_id = $1 AND organization_id = $2 AND id = -1",
-            )
-            .bind(tenant_id)
-            .bind(organization_id)
-            .execute(&mut *transaction)
-            .await?;
-        }
-    }
+    sqlx::query(
+        "SELECT pg_advisory_xact_lock(hashtextextended(CAST($1 AS TEXT) || ':' || CAST($2 AS TEXT), $3))",
+    )
+    .bind(tenant_id)
+    .bind(organization_id)
+    .bind(KNOWLEDGEBASE_QUOTA_LOCK_NAMESPACE)
+    .execute(&mut *transaction)
+    .await?;
     Ok(transaction)
 }
 
@@ -54,7 +37,6 @@ pub(crate) enum TenantQuotaTransactionError {
 
 pub(crate) async fn enforce_tenant_quotas_after_write(
     connection: &mut AnyConnection,
-    database_engine: DatabaseEngine,
     tenant_id: i64,
     organization_id: i64,
     limits: KnowledgebaseTenantQuotaLimits,
@@ -86,10 +68,7 @@ pub(crate) async fn enforce_tenant_quotas_after_write(
         })?
         .format(&Rfc3339)
         .map_err(|error| TenantQuotaTransactionError::Invalid(error.to_string()))?;
-    let cutoff_expr = match database_engine {
-        DatabaseEngine::Sqlite => "$7",
-        DatabaseEngine::Postgres => "CAST($7 AS TIMESTAMP)",
-    };
+    let cutoff_expr = "CAST($7 AS TIMESTAMP)";
     let query = format!(
         r#"
         SELECT COUNT(*)

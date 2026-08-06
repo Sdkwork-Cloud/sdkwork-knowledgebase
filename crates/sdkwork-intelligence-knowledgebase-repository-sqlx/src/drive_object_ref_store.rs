@@ -19,7 +19,7 @@ use crate::quota_transaction::begin_tenant_quota_transaction;
 const ACTIVE_STATUS: i64 = 1;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeDriveObjectRefStore {
+pub struct PostgresKnowledgeDriveObjectRefStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -29,7 +29,7 @@ pub struct SqliteKnowledgeDriveObjectRefStore {
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteKnowledgeDriveObjectRefStore {
+impl PostgresKnowledgeDriveObjectRefStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -51,7 +51,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -69,7 +69,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
 }
 
 #[async_trait]
-impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
+impl KnowledgeDriveObjectRefStore for PostgresKnowledgeDriveObjectRefStore {
     async fn create_object_ref(
         &self,
         record: CreateKnowledgeDriveObjectRefRecord,
@@ -103,7 +103,7 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         space_id: u64,
         prefix: &str,
     ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
-        SqliteKnowledgeDriveObjectRefStore::list_object_refs_by_logical_path_prefix(
+        PostgresKnowledgeDriveObjectRefStore::list_object_refs_by_logical_path_prefix(
             self, space_id, prefix,
         )
         .await
@@ -156,7 +156,7 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
     }
 }
 
-impl SqliteKnowledgeDriveObjectRefStore {
+impl PostgresKnowledgeDriveObjectRefStore {
     async fn create_object_ref_with_quota(
         &self,
         record: CreateKnowledgeDriveObjectRefRecord,
@@ -166,8 +166,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await
@@ -195,8 +194,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await

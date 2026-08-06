@@ -19,7 +19,7 @@ const INITIAL_VERSION: i64 = 0;
 const MAX_LINK_SCAN_PAGE_SIZE: u32 = 2_000;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeOkfConceptLinkStore {
+pub struct PostgresKnowledgeOkfConceptLinkStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -27,7 +27,7 @@ pub struct SqliteKnowledgeOkfConceptLinkStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeOkfConceptLinkStore {
+impl PostgresKnowledgeOkfConceptLinkStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -59,7 +59,7 @@ impl SqliteKnowledgeOkfConceptLinkStore {
 }
 
 #[async_trait]
-impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
+impl KnowledgeOkfConceptLinkStore for PostgresKnowledgeOkfConceptLinkStore {
     async fn replace_outbound_links(
         &self,
         record: ReplaceKnowledgeOkfConceptLinksRecord,

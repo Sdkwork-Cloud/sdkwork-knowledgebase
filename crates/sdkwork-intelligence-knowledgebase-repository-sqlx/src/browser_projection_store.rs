@@ -16,13 +16,13 @@ const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 const OKF_STATE_NONE: &str = "none";
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeBrowserProjectionStore {
+pub struct PostgresKnowledgeBrowserProjectionStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
 }
 
-impl SqliteKnowledgeBrowserProjectionStore {
+impl PostgresKnowledgeBrowserProjectionStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self {
             pool,
@@ -33,7 +33,7 @@ impl SqliteKnowledgeBrowserProjectionStore {
 }
 
 #[async_trait]
-impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
+impl KnowledgeBrowserProjectionStore for PostgresKnowledgeBrowserProjectionStore {
     async fn batch_document_projections(
         &self,
         space_id: u64,

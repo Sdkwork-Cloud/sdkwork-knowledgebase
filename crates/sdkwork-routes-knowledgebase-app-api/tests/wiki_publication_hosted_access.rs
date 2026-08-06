@@ -1,3 +1,4 @@
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::{
     body::{to_bytes, Body},
     http::{header, Method, Request, StatusCode},
@@ -19,10 +20,20 @@ const WRITER_ID: u64 = 43;
 const READER_ID: u64 = 44;
 const MISSING_SOURCE_FILE_UUID: &str = "11111111-1111-4111-8111-111111111999";
 
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_wiki_routes_enforce_reader_writer_and_owner_roles() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let space_id = create_space(&runtime).await;
     grant_role(&runtime, space_id, WRITER_ID, "writer").await;
     grant_role(&runtime, space_id, READER_ID, "reader").await;
@@ -303,7 +314,11 @@ async fn response_json(response: Response) -> Value {
     serde_json::from_slice(&body).expect("parse response body")
 }
 
-async fn test_runtime() -> KnowledgebaseRuntime {
+async fn test_runtime() -> Option<KnowledgebaseRuntime> {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return None;
+    };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -323,17 +338,8 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         drive_root.to_string_lossy().as_ref(),
     );
 
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    KnowledgebaseRuntime::connect(
-        &format!("sqlite://{relative_database_path}?mode=rwc"),
-        TENANT_ID,
-    )
-    .await
-    .expect("initialize Knowledgebase runtime")
+    KnowledgebaseRuntime::connect(&database_url, TENANT_ID)
+        .await
+        .expect("initialize Knowledgebase runtime")
+        .into()
 }

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, KnowledgeIdGenerator};
-use crate::sqlite_okf_candidate_transaction::{
+use crate::postgres_okf_candidate_transaction::{
     update_okf_candidate_state_by_concept_row_id_in_transaction,
     upsert_okf_candidate_in_transaction, OKF_CANDIDATE_ACTIVE_STATUS,
 };
@@ -19,7 +19,7 @@ use crate::sqlite_okf_candidate_transaction::{
 const MAX_CANDIDATE_ROWS: i64 = 200;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeOkfCandidateStore {
+pub struct PostgresKnowledgeOkfCandidateStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -27,7 +27,7 @@ pub struct SqliteKnowledgeOkfCandidateStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeOkfCandidateStore {
+impl PostgresKnowledgeOkfCandidateStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -59,7 +59,7 @@ impl SqliteKnowledgeOkfCandidateStore {
 }
 
 #[async_trait]
-impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
+impl KnowledgeOkfCandidateStore for PostgresKnowledgeOkfCandidateStore {
     async fn upsert_candidate(
         &self,
         record: UpsertKnowledgeOkfCandidateRecord,

@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
-use crate::sqlite_okf_concept_transaction::{
+use crate::postgres_okf_concept_transaction::{
     next_okf_revision_no_in_transaction, upsert_okf_concept_in_transaction,
 };
 
@@ -28,7 +28,7 @@ const INITIAL_VERSION: i64 = 0;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeOkfConceptStore {
+pub struct PostgresKnowledgeOkfConceptStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -36,7 +36,7 @@ pub struct SqliteKnowledgeOkfConceptStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeOkfConceptStore {
+impl PostgresKnowledgeOkfConceptStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -292,7 +292,7 @@ impl SqliteKnowledgeOkfConceptStore {
 }
 
 #[async_trait]
-impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
+impl KnowledgeOkfConceptStore for PostgresKnowledgeOkfConceptStore {
     async fn upsert_concept(
         &self,
         record: UpsertKnowledgeOkfConceptRecord,
@@ -379,7 +379,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         &self,
         concept_row_id: u64,
     ) -> Result<u64, KnowledgeOkfConceptStoreError> {
-        SqliteKnowledgeOkfConceptStore::next_revision_no(self, concept_row_id).await
+        PostgresKnowledgeOkfConceptStore::next_revision_no(self, concept_row_id).await
     }
 
     async fn mark_current_revision(
@@ -563,7 +563,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         page_size: u32,
     ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
     {
-        SqliteKnowledgeOkfConceptStore::list_concept_revisions_page(
+        PostgresKnowledgeOkfConceptStore::list_concept_revisions_page(
             self,
             concept_row_id,
             cursor,

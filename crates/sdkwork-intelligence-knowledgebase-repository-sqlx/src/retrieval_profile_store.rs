@@ -22,7 +22,7 @@ pub enum KnowledgeRetrievalProfileStoreError {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeRetrievalProfileStore {
+pub struct PostgresKnowledgeRetrievalProfileStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -30,7 +30,7 @@ pub struct SqliteKnowledgeRetrievalProfileStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeRetrievalProfileStore {
+impl PostgresKnowledgeRetrievalProfileStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,

@@ -22,13 +22,13 @@ const DEFAULT_PROVIDER_ID: &str = "provider.model.sdkwork-cloudrouter-router";
 const DEFAULT_EMBEDDING_MODEL: &str = "openai/text-embedding-3-small";
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
-pub enum SqliteKnowledgeEmbeddingStoreError {
+pub enum PostgresKnowledgeEmbeddingStoreError {
     #[error("knowledge embedding store internal error: {0}")]
     Internal(String),
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeEmbeddingStore {
+pub struct PostgresKnowledgeEmbeddingStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -54,7 +54,7 @@ struct PreparedEmbeddingUpsert {
     now: String,
 }
 
-impl SqliteKnowledgeEmbeddingStore {
+impl PostgresKnowledgeEmbeddingStore {
     pub fn new(
         pool: AnyPool,
         tenant_id: u64,
@@ -89,7 +89,7 @@ impl SqliteKnowledgeEmbeddingStore {
     pub async fn upsert_chunk_embedding(
         &self,
         request: ChunkEmbeddingUpsertRequest,
-    ) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<(), PostgresKnowledgeEmbeddingStoreError> {
         self.upsert_chunk_embeddings_batch(std::slice::from_ref(&request))
             .await
     }
@@ -97,12 +97,11 @@ impl SqliteKnowledgeEmbeddingStore {
     pub async fn upsert_chunk_embeddings_batch(
         &self,
         requests: &[ChunkEmbeddingUpsertRequest],
-    ) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<(), PostgresKnowledgeEmbeddingStoreError> {
         if requests.is_empty() {
             return Ok(());
         }
 
-        let is_postgres = self.database_engine == DatabaseEngine::Postgres;
         let timestamp_dialect = SqlTimestampDialect::from_database_engine(self.database_engine);
         let mut tx = self.pool.begin().await.map_err(sqlx_error)?;
         for request_batch in requests.chunks(EMBEDDING_UPSERT_BATCH_SIZE) {
@@ -110,11 +109,7 @@ impl SqliteKnowledgeEmbeddingStore {
                 .iter()
                 .map(|request| self.prepare_embedding_upsert(request))
                 .collect::<Result<Vec<_>, _>>()?;
-            if is_postgres {
-                bulk_upsert_embeddings_postgres(&mut tx, timestamp_dialect, &prepared).await?;
-            } else {
-                bulk_upsert_embeddings_sqlite(&mut tx, &prepared).await?;
-            }
+            bulk_upsert_embeddings_postgres(&mut tx, timestamp_dialect, &prepared).await?;
         }
         tx.commit().await.map_err(sqlx_error)?;
         Ok(())
@@ -123,15 +118,15 @@ impl SqliteKnowledgeEmbeddingStore {
     fn prepare_embedding_upsert(
         &self,
         request: &ChunkEmbeddingUpsertRequest,
-    ) -> Result<PreparedEmbeddingUpsert, SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<PreparedEmbeddingUpsert, PostgresKnowledgeEmbeddingStoreError> {
         ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
         if request.vector.is_empty() || request.vector.len() > MAX_EMBEDDING_DIMENSION {
-            return Err(SqliteKnowledgeEmbeddingStoreError::Internal(format!(
+            return Err(PostgresKnowledgeEmbeddingStoreError::Internal(format!(
                 "embedding dimension must be between 1 and {MAX_EMBEDDING_DIMENSION}"
             )));
         }
         if request.vector.iter().any(|value| !value.is_finite()) {
-            return Err(SqliteKnowledgeEmbeddingStoreError::Internal(
+            return Err(PostgresKnowledgeEmbeddingStoreError::Internal(
                 "embedding vector contains a non-finite value".to_string(),
             ));
         }
@@ -141,10 +136,10 @@ impl SqliteKnowledgeEmbeddingStore {
         let index_id = to_i64("index_id", request.index_id)?;
         let chunk_id = to_i64("chunk_id", request.chunk_id)?;
         let dimension = i64::try_from(request.vector.len()).map_err(|_| {
-            SqliteKnowledgeEmbeddingStoreError::Internal("embedding dimension overflow".to_string())
+            PostgresKnowledgeEmbeddingStoreError::Internal("embedding dimension overflow".to_string())
         })?;
         let vector_json = serialize_embedding_vector(&request.vector)
-            .map_err(SqliteKnowledgeEmbeddingStoreError::Internal)?;
+            .map_err(PostgresKnowledgeEmbeddingStoreError::Internal)?;
         let provider_id = request
             .provider_id
             .clone()
@@ -175,7 +170,7 @@ impl SqliteKnowledgeEmbeddingStore {
     pub async fn load_chunk_content(
         &self,
         chunk_id: u64,
-    ) -> Result<Option<String>, SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<Option<String>, PostgresKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let chunk_id = to_i64("chunk_id", chunk_id)?;
@@ -201,7 +196,7 @@ impl SqliteKnowledgeEmbeddingStore {
     pub async fn list_active_chunk_ids_for_space(
         &self,
         space_id: u64,
-    ) -> Result<Vec<u64>, SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<Vec<u64>, PostgresKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
@@ -225,7 +220,7 @@ impl SqliteKnowledgeEmbeddingStore {
         rows.into_iter()
             .map(|value| {
                 u64::try_from(value).map_err(|_| {
-                    SqliteKnowledgeEmbeddingStoreError::Internal("chunk id overflow".to_string())
+                    PostgresKnowledgeEmbeddingStoreError::Internal("chunk id overflow".to_string())
                 })
             })
             .collect()
@@ -236,7 +231,7 @@ impl SqliteKnowledgeEmbeddingStore {
         space_id: u64,
         after_chunk_id: u64,
         limit: u32,
-    ) -> Result<Vec<(u64, String)>, SqliteKnowledgeEmbeddingStoreError> {
+    ) -> Result<Vec<(u64, String)>, PostgresKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
@@ -272,7 +267,7 @@ impl SqliteKnowledgeEmbeddingStore {
                     .try_get::<String, _>("content_text")
                     .map_err(sqlx_error)?;
                 let chunk_id = u64::try_from(chunk_id).map_err(|_| {
-                    SqliteKnowledgeEmbeddingStoreError::Internal("chunk id overflow".to_string())
+                    PostgresKnowledgeEmbeddingStoreError::Internal("chunk id overflow".to_string())
                 })?;
                 Ok((chunk_id, content))
             })
@@ -280,64 +275,12 @@ impl SqliteKnowledgeEmbeddingStore {
     }
 }
 
-async fn bulk_upsert_embeddings_sqlite(
-    transaction: &mut Transaction<'_, Any>,
-    batch: &[PreparedEmbeddingUpsert],
-) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
-    let mut builder = QueryBuilder::new(
-        r#"
-        INSERT INTO kb_embedding (
-            id, uuid, tenant_id, organization_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
-            dimension, provider_id, model, metadata, status, created_at, updated_at, version
-        )
-        "#,
-    );
-    builder.push_values(batch, |mut row, item| {
-        row.push_bind(item.id)
-            .push_bind(item.uuid.as_str())
-            .push_bind(item.tenant_id)
-            .push_bind(item.organization_id)
-            .push_bind(item.index_id)
-            .push_bind(item.chunk_id)
-            .push_bind(item.embedding_hash.as_str())
-            .push_bind(item.vector_ref.as_str())
-            .push_bind(item.vector_json.as_str())
-            .push_bind(item.dimension)
-            .push_bind(item.provider_id.as_str())
-            .push_bind(item.model.as_str())
-            .push("NULL")
-            .push_bind(ACTIVE_STATUS)
-            .push_bind(item.now.as_str())
-            .push_bind(item.now.as_str())
-            .push_bind(INITIAL_VERSION);
-    });
-    builder.push(
-        r#"
-        ON CONFLICT (tenant_id, organization_id, index_id, chunk_id) DO UPDATE SET
-            embedding_hash = excluded.embedding_hash,
-            vector_ref = excluded.vector_ref,
-            vector_json = excluded.vector_json,
-            dimension = excluded.dimension,
-            provider_id = excluded.provider_id,
-            model = excluded.model,
-            status = excluded.status,
-            updated_at = excluded.updated_at,
-            version = kb_embedding.version + 1
-        "#,
-    );
-    builder
-        .build()
-        .execute(&mut **transaction)
-        .await
-        .map_err(sqlx_error)?;
-    Ok(())
-}
 
 async fn bulk_upsert_embeddings_postgres(
     transaction: &mut Transaction<'_, Any>,
     timestamp_dialect: SqlTimestampDialect,
     batch: &[PreparedEmbeddingUpsert],
-) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
+) -> Result<(), PostgresKnowledgeEmbeddingStoreError> {
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_embedding (
@@ -394,42 +337,42 @@ async fn bulk_upsert_embeddings_postgres(
 fn ensure_tenant_scope(
     expected: u64,
     actual: u64,
-) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
+) -> Result<(), PostgresKnowledgeEmbeddingStoreError> {
     if expected != actual {
-        return Err(SqliteKnowledgeEmbeddingStoreError::Internal(
+        return Err(PostgresKnowledgeEmbeddingStoreError::Internal(
             "tenant_id is out of store scope".to_string(),
         ));
     }
     Ok(())
 }
 
-fn to_i64(field: &str, value: u64) -> Result<i64, SqliteKnowledgeEmbeddingStoreError> {
+fn to_i64(field: &str, value: u64) -> Result<i64, PostgresKnowledgeEmbeddingStoreError> {
     i64::try_from(value).map_err(|_| {
-        SqliteKnowledgeEmbeddingStoreError::Internal(format!("{field} is out of i64 range"))
+        PostgresKnowledgeEmbeddingStoreError::Internal(format!("{field} is out of i64 range"))
     })
 }
 
-fn now_rfc3339() -> Result<String, SqliteKnowledgeEmbeddingStoreError> {
+fn now_rfc3339() -> Result<String, PostgresKnowledgeEmbeddingStoreError> {
     OffsetDateTime::now_utc()
         .format(&Rfc3339)
-        .map_err(|error| SqliteKnowledgeEmbeddingStoreError::Internal(error.to_string()))
+        .map_err(|error| PostgresKnowledgeEmbeddingStoreError::Internal(error.to_string()))
 }
 
-fn id_error(error: crate::id::KnowledgeIdGeneratorError) -> SqliteKnowledgeEmbeddingStoreError {
-    SqliteKnowledgeEmbeddingStoreError::Internal(error.to_string())
+fn id_error(error: crate::id::KnowledgeIdGeneratorError) -> PostgresKnowledgeEmbeddingStoreError {
+    PostgresKnowledgeEmbeddingStoreError::Internal(error.to_string())
 }
 
-fn sqlx_error(error: sqlx::Error) -> SqliteKnowledgeEmbeddingStoreError {
-    SqliteKnowledgeEmbeddingStoreError::Internal(error.to_string())
+fn sqlx_error(error: sqlx::Error) -> PostgresKnowledgeEmbeddingStoreError {
+    PostgresKnowledgeEmbeddingStoreError::Internal(error.to_string())
 }
 
 #[async_trait]
-impl KnowledgeEmbeddingStore for SqliteKnowledgeEmbeddingStore {
+impl KnowledgeEmbeddingStore for PostgresKnowledgeEmbeddingStore {
     async fn upsert_chunk_embedding(
         &self,
         request: ChunkEmbeddingUpsertRequest,
     ) -> Result<(), KnowledgeEmbeddingStoreError> {
-        SqliteKnowledgeEmbeddingStore::upsert_chunk_embedding(self, request)
+        PostgresKnowledgeEmbeddingStore::upsert_chunk_embedding(self, request)
             .await
             .map_err(|error| KnowledgeEmbeddingStoreError::Internal(error.to_string()))
     }
@@ -438,7 +381,7 @@ impl KnowledgeEmbeddingStore for SqliteKnowledgeEmbeddingStore {
         &self,
         requests: &[ChunkEmbeddingUpsertRequest],
     ) -> Result<(), KnowledgeEmbeddingStoreError> {
-        SqliteKnowledgeEmbeddingStore::upsert_chunk_embeddings_batch(self, requests)
+        PostgresKnowledgeEmbeddingStore::upsert_chunk_embeddings_batch(self, requests)
             .await
             .map_err(|error| KnowledgeEmbeddingStoreError::Internal(error.to_string()))
     }
@@ -447,7 +390,7 @@ impl KnowledgeEmbeddingStore for SqliteKnowledgeEmbeddingStore {
         &self,
         chunk_id: u64,
     ) -> Result<Option<String>, KnowledgeEmbeddingStoreError> {
-        SqliteKnowledgeEmbeddingStore::load_chunk_content(self, chunk_id)
+        PostgresKnowledgeEmbeddingStore::load_chunk_content(self, chunk_id)
             .await
             .map_err(|error| KnowledgeEmbeddingStoreError::Internal(error.to_string()))
     }
@@ -456,7 +399,7 @@ impl KnowledgeEmbeddingStore for SqliteKnowledgeEmbeddingStore {
         &self,
         space_id: u64,
     ) -> Result<Vec<u64>, KnowledgeEmbeddingStoreError> {
-        SqliteKnowledgeEmbeddingStore::list_active_chunk_ids_for_space(self, space_id)
+        PostgresKnowledgeEmbeddingStore::list_active_chunk_ids_for_space(self, space_id)
             .await
             .map_err(|error| KnowledgeEmbeddingStoreError::Internal(error.to_string()))
     }
@@ -467,7 +410,7 @@ impl KnowledgeEmbeddingStore for SqliteKnowledgeEmbeddingStore {
         after_chunk_id: u64,
         limit: u32,
     ) -> Result<Vec<(u64, String)>, KnowledgeEmbeddingStoreError> {
-        SqliteKnowledgeEmbeddingStore::list_active_chunk_id_content_page(
+        PostgresKnowledgeEmbeddingStore::list_active_chunk_id_content_page(
             self,
             space_id,
             after_chunk_id,

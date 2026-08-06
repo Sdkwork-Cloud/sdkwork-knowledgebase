@@ -31,44 +31,20 @@ pub const POSTGRES_CHUNK_FTS_MIGRATION: &str =
 pub const POSTGRES_PERFORMANCE_INDEXES_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606230001__knowledgebase_performance_indexes.sql");
 
-pub const SQLITE_CORE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606010001__knowledgebase_core.sql");
 
-pub const SQLITE_ACCESS_MODE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606170001__knowledge_access_mode.sql");
 
-pub const SQLITE_AGENT_IMPLEMENTATION_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606180001__agent_implementation.sql");
 
-pub const SQLITE_CONTEXT_BINDING_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606140001__knowledgebase_context_binding.sql");
 
-pub const SQLITE_OUTBOX_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606200001__knowledgebase_outbox.sql");
 
-pub const SQLITE_OKF_LINK_CANDIDATE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606210001__okf_link_and_candidate.sql");
 
-pub const SQLITE_OUTBOX_DELIVERY_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606220001__knowledgebase_outbox_delivery.sql");
 
-pub const SQLITE_OUTBOX_CLAIM_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606220003__knowledgebase_outbox_claim.sql");
 
-pub const SQLITE_CHUNK_FTS_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606220002__knowledgebase_chunk_fts.sql");
 
-pub const SQLITE_PERFORMANCE_INDEXES_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606230001__knowledgebase_performance_indexes.sql");
 
-pub const SQLITE_MARKET_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606240001__knowledge_market.sql");
 
 pub const POSTGRES_MARKET_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606240001__knowledge_market.sql");
 
-pub const SQLITE_AUDIT_EVENT_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606250001__knowledgebase_audit_event.sql");
 
 pub const POSTGRES_AUDIT_EVENT_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606250001__knowledgebase_audit_event.sql");
@@ -76,79 +52,30 @@ pub const POSTGRES_AUDIT_EVENT_MIGRATION: &str =
 pub const POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607130001__group_knowledge_space.sql");
 
-pub const SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607130001__group_knowledge_space.sql");
 
 pub const POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607130002__group_membership_projection.sql");
 
-pub const SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607130002__group_membership_projection.sql");
 
 pub const POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION: &str = include_str!(
     "../migrations/postgres/V202607130003__group_archive_saga_and_scope_integrity.sql"
 );
 
-pub const SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607130003__group_archive_saga_and_scope_integrity.sql");
 
-pub const SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607130004__group_archive_saga_scope_triggers.sql");
 
-pub const SQLITE_INGESTION_JOB_LEASE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607160002__ingestion_job_lease.sql");
 
 pub const POSTGRES_INGESTION_JOB_LEASE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607160002__ingestion_job_lease.sql");
 
-pub const SQLITE_CORE_ORGANIZATION_SCOPE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607310001__core_organization_scope.sql");
 
-pub const SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607310002__outbox_claim_fencing.sql");
 
-pub const SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202607310003__embedding_scope_triggers.sql");
 
-pub const SQLITE_OUTBOX_RETRY_BACKOFF_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202608040001__outbox_retry_backoff.sql");
 
-pub const SQLITE_PROVIDER_BINDING_MIGRATION: &str = include_str!(
-    "../../../tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql"
-);
 
-pub const SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION: &str = include_str!(
-    "../../../tests/fixtures/database/sqlite/migrations/202607210001_live_wiki_publication.up.sql"
-);
 
 pub const POSTGRES_LIVE_WIKI_PUBLICATION_MIGRATION: &str =
     include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
 
-pub const SQLITE_MIGRATIONS: &[&str] = &[
-    SQLITE_CORE_MIGRATION,
-    SQLITE_CONTEXT_BINDING_MIGRATION,
-    SQLITE_ACCESS_MODE_MIGRATION,
-    SQLITE_AGENT_IMPLEMENTATION_MIGRATION,
-    SQLITE_OUTBOX_MIGRATION,
-    SQLITE_OKF_LINK_CANDIDATE_MIGRATION,
-    SQLITE_OUTBOX_DELIVERY_MIGRATION,
-    SQLITE_CHUNK_FTS_MIGRATION,
-    SQLITE_OUTBOX_CLAIM_MIGRATION,
-    SQLITE_PERFORMANCE_INDEXES_MIGRATION,
-    SQLITE_MARKET_MIGRATION,
-    SQLITE_AUDIT_EVENT_MIGRATION,
-    SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION,
-    SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
-    SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION,
-    SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION,
-    SQLITE_INGESTION_JOB_LEASE_MIGRATION,
-    SQLITE_PROVIDER_BINDING_MIGRATION,
-    SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION,
-    SQLITE_CORE_ORGANIZATION_SCOPE_MIGRATION,
-    SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION,
-    SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION,
-    SQLITE_OUTBOX_RETRY_BACKOFF_MIGRATION,
-];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_CORE_MIGRATION,

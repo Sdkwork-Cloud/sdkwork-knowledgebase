@@ -1,10 +1,22 @@
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::default_knowledge_id_generator;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn runtime_uses_a_healthy_database_backed_snowflake_node_lease() {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping snowflake lease test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let work_dir = std::env::current_dir().expect("current directory");
     let test_root = work_dir
         .join("target")
@@ -13,14 +25,6 @@ async fn runtime_uses_a_healthy_database_backed_snowflake_node_lease() {
     let drive_root = test_root.join("drive-objects");
     std::fs::create_dir_all(&drive_root).expect("create drive root");
 
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     std::env::set_var("SDKWORK_DATABASE_NODE_LEASE_ENABLED", "true");

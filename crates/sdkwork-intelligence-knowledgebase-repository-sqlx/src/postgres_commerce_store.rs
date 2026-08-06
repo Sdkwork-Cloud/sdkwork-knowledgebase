@@ -16,14 +16,14 @@ const ACTIVE_STATUS: i64 = 1;
 const DELETED_STATUS: i64 = 0;
 
 #[derive(Debug, Clone)]
-pub struct SqliteCommerceStore {
+pub struct PostgresCommerceStore {
     pool: AnyPool,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteCommerceStore {
+impl PostgresCommerceStore {
     pub fn new(pool: AnyPool, organization_id: u64) -> Self {
         Self {
             pool,
@@ -124,7 +124,7 @@ async fn fetch_catalog_rows(
 }
 
 #[async_trait]
-impl KnowledgeMarketStore for SqliteCommerceStore {
+impl KnowledgeMarketStore for PostgresCommerceStore {
     async fn list_catalog_page(
         &self,
         tenant_id: u64,

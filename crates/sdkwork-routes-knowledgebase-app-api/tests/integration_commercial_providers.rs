@@ -1,3 +1,4 @@
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
@@ -6,6 +7,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
 
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
@@ -37,7 +45,10 @@ async fn configured_sdk_media_providers_return_real_results() {
         provider.uri(),
     );
     std::env::set_var("SDKWORK_CLOUDROUTER_API_KEY", "integration-provider-key");
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app).await;
 
@@ -157,7 +168,11 @@ fn payload(body: &Value) -> &Value {
     body.get("data").unwrap_or(body)
 }
 
-async fn test_runtime() -> KnowledgebaseRuntime {
+async fn test_runtime() -> Option<KnowledgebaseRuntime> {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return None;
+    };
     let work_dir = std::env::current_dir().expect("current directory");
     let test_root = work_dir
         .join("target")
@@ -171,16 +186,10 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
         drive_root.to_string_lossy().as_ref(),
     );
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    KnowledgebaseRuntime::connect(&format!("sqlite://{relative_database_path}?mode=rwc"), 1)
+    KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("initialize runtime")
+        .into()
 }
 
 fn unique_suffix() -> u128 {

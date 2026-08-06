@@ -4,20 +4,20 @@ use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_knowledgebase_and_install_schema, database_config_from_url,
     default_knowledge_id_generator, install_default_knowledge_id_generator,
-    is_postgres_database_url, keyword_search_backend_for_database_url, knowledgebase_health_check,
+    keyword_search_backend_for_database_url, knowledgebase_health_check,
     knowledgebase_process_pool_budget_from_url, require_postgres_rls_organization_id,
     require_postgres_rls_tenant_id, KnowledgeAuditEventRecord, KnowledgeAuditEventStore,
     PgVectorKnowledgeRetrievalBackend, PgVectorLayeredRetrievalBackend,
-    SnowflakeKnowledgeIdGenerator, SqliteCommerceStore, SqliteContextBindingStore,
-    SqliteDriveImportMetadataStore, SqliteGroupKnowledgeSpaceBindingStore, SqliteIngestionJobStore,
-    SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
-    SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
-    SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
-    SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
-    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfCandidateStore,
-    SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
-    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
-    SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
+    SnowflakeKnowledgeIdGenerator, PostgresCommerceStore, PostgresContextBindingStore,
+    PostgresDriveImportMetadataStore, PostgresGroupKnowledgeSpaceBindingStore, PostgresIngestionJobStore,
+    PostgresKnowledgeAgentProfileStore, PostgresKnowledgeAuditEventStore,
+    PostgresKnowledgeBrowserProjectionStore, PostgresKnowledgeChunkRetrievalStore,
+    PostgresKnowledgeChunkStore, PostgresKnowledgeDocumentStore, PostgresKnowledgeDocumentVersionStore,
+    PostgresKnowledgeDriveObjectRefStore, PostgresKnowledgeEmbeddingStore, PostgresKnowledgeIndexStore,
+    PostgresKnowledgeOkfBundleFileStore, PostgresKnowledgeOkfCandidateStore,
+    PostgresKnowledgeOkfConceptLinkStore, PostgresKnowledgeOkfConceptStore, PostgresKnowledgeOutboxStore,
+    PostgresKnowledgeRetrievalProfileStore, PostgresKnowledgeSourceStore, PostgresKnowledgeSpaceStore,
+    PostgresMarkdownIndexMetadataStore, PostgresOkfConceptRevisionMetadataStore,
     SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
     SqlxWikiPersistenceStore,
 };
@@ -141,36 +141,36 @@ pub struct KnowledgebaseRuntime {
     organization_id: u64,
     tenant_id_str: String,
     operator_id: String,
-    retrieval_store: Arc<SqliteKnowledgeChunkRetrievalStore>,
+    retrieval_store: Arc<PostgresKnowledgeChunkRetrievalStore>,
     retrieval_backend: SharedKnowledgeRetrievalBackend,
-    retrieval_profile_store: Arc<SqliteKnowledgeRetrievalProfileStore>,
-    index_store: Arc<SqliteKnowledgeIndexStore>,
-    embedding_store: Arc<SqliteKnowledgeEmbeddingStore>,
-    agent_store: Arc<SqliteKnowledgeAgentProfileStore>,
-    space_store: Arc<SqliteKnowledgeSpaceStore>,
+    retrieval_profile_store: Arc<PostgresKnowledgeRetrievalProfileStore>,
+    index_store: Arc<PostgresKnowledgeIndexStore>,
+    embedding_store: Arc<PostgresKnowledgeEmbeddingStore>,
+    agent_store: Arc<PostgresKnowledgeAgentProfileStore>,
+    space_store: Arc<PostgresKnowledgeSpaceStore>,
     wiki_store: Arc<SqlxWikiPersistenceStore>,
-    okf_bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
-    okf_concept_store: Arc<SqliteKnowledgeOkfConceptStore>,
-    okf_concept_link_store: Arc<SqliteKnowledgeOkfConceptLinkStore>,
-    okf_candidate_store: Arc<SqliteKnowledgeOkfCandidateStore>,
-    document_store: Arc<SqliteKnowledgeDocumentStore>,
-    source_store: Arc<SqliteKnowledgeSourceStore>,
+    okf_bundle_file_store: Arc<PostgresKnowledgeOkfBundleFileStore>,
+    okf_concept_store: Arc<PostgresKnowledgeOkfConceptStore>,
+    okf_concept_link_store: Arc<PostgresKnowledgeOkfConceptLinkStore>,
+    okf_candidate_store: Arc<PostgresKnowledgeOkfCandidateStore>,
+    document_store: Arc<PostgresKnowledgeDocumentStore>,
+    source_store: Arc<PostgresKnowledgeSourceStore>,
     provider_binding_store: Arc<SqlxKnowledgeEngineProviderBindingStore>,
     provider_migration_store: Arc<SqlxKnowledgeEngineProviderMigrationStore>,
     provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
-    version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
-    object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
-    ingestion_job_store: Arc<SqliteIngestionJobStore>,
-    drive_import_metadata_store: Arc<SqliteDriveImportMetadataStore>,
-    markdown_index_metadata_store: Arc<SqliteMarkdownIndexMetadataStore>,
-    outbox_store: Arc<SqliteKnowledgeOutboxStore>,
+    version_store: Arc<PostgresKnowledgeDocumentVersionStore>,
+    object_ref_store: Arc<PostgresKnowledgeDriveObjectRefStore>,
+    ingestion_job_store: Arc<PostgresIngestionJobStore>,
+    drive_import_metadata_store: Arc<PostgresDriveImportMetadataStore>,
+    markdown_index_metadata_store: Arc<PostgresMarkdownIndexMetadataStore>,
+    outbox_store: Arc<PostgresKnowledgeOutboxStore>,
     outbox_dispatcher: Arc<dyn sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatcher>,
-    chunk_store: Arc<SqliteKnowledgeChunkStore>,
-    context_binding_store: Arc<SqliteContextBindingStore>,
-    group_space_binding_store: Arc<SqliteGroupKnowledgeSpaceBindingStore>,
+    chunk_store: Arc<PostgresKnowledgeChunkStore>,
+    context_binding_store: Arc<PostgresContextBindingStore>,
+    group_space_binding_store: Arc<PostgresGroupKnowledgeSpaceBindingStore>,
     group_launch_ticket_consumer: Option<Arc<dyn GroupLaunchTicketConsumer>>,
-    browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
-    audit_event_store: Arc<SqliteKnowledgeAuditEventStore>,
+    browser_projection_store: Arc<PostgresKnowledgeBrowserProjectionStore>,
+    audit_event_store: Arc<PostgresKnowledgeAuditEventStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
@@ -183,7 +183,7 @@ pub struct KnowledgebaseRuntime {
     wiki_provider_caller_app_id: Arc<str>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
-    commerce_store: Arc<SqliteCommerceStore>,
+    commerce_store: Arc<PostgresCommerceStore>,
     snowflake_node_lease: Option<NodeLease>,
 }
 
@@ -799,11 +799,7 @@ impl KnowledgebaseRuntime {
         .await?;
         let pg_pool = Some(drive_pool.clone());
         let keyword_backend = keyword_search_backend_for_database_url(database_url);
-        let database_engine = if is_postgres_database_url(database_url) {
-            sdkwork_database_config::DatabaseEngine::Postgres
-        } else {
-            sdkwork_database_config::DatabaseEngine::Sqlite
-        };
+        let database_engine = sdkwork_database_config::DatabaseEngine::Postgres;
         Self::from_pools(
             pool,
             drive_pool,
@@ -897,7 +893,7 @@ impl KnowledgebaseRuntime {
         ));
 
         let retrieval_store = Arc::new(
-            SqliteKnowledgeChunkRetrievalStore::with_keyword_backend(
+            PostgresKnowledgeChunkRetrievalStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -934,11 +930,11 @@ impl KnowledgebaseRuntime {
                 .unwrap_or(base_retrieval);
 
         let okf_concept_store = Arc::new(
-            SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let space_store = Arc::new(
-            SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let wiki_store = Arc::new(
@@ -962,41 +958,41 @@ impl KnowledgebaseRuntime {
                 .with_database_engine(database_engine),
         );
         let okf_bundle_file_store = Arc::new(
-            SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_concept_link_store = Arc::new(
-            SqliteKnowledgeOkfConceptLinkStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeOkfConceptLinkStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_candidate_store = Arc::new(
-            SqliteKnowledgeOkfCandidateStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeOkfCandidateStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_revision_metadata_store = Arc::new(
-            SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let source_store = Arc::new(
-            SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeSourceStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let object_ref_store = Arc::new(
-            SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let document_store = Arc::new(
-            SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeDocumentStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let index_store = Arc::new(
-            SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeIndexStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
-        let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(
+        let embedding_store = Arc::new(PostgresKnowledgeEmbeddingStore::new(
             pool.clone(),
             tenant_id,
             organization_id,
@@ -1031,7 +1027,7 @@ impl KnowledgebaseRuntime {
         }));
 
         let audit_event_store = Arc::new(
-            SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id, organization_id)
+            PostgresKnowledgeAuditEventStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let audit_hook_store = audit_event_store.clone();
@@ -1067,7 +1063,7 @@ impl KnowledgebaseRuntime {
         Ok(Self {
             retrieval_store,
             retrieval_backend,
-            retrieval_profile_store: Arc::new(SqliteKnowledgeRetrievalProfileStore::new(
+            retrieval_profile_store: Arc::new(PostgresKnowledgeRetrievalProfileStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -1075,7 +1071,7 @@ impl KnowledgebaseRuntime {
             .with_database_engine(database_engine)),
             index_store,
             embedding_store,
-            agent_store: Arc::new(SqliteKnowledgeAgentProfileStore::new(
+            agent_store: Arc::new(PostgresKnowledgeAgentProfileStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -1092,14 +1088,14 @@ impl KnowledgebaseRuntime {
             provider_binding_store,
             provider_migration_store,
             provider_credential_resolver,
-            version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
+            version_store: Arc::new(PostgresKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
             )
             .with_database_engine(database_engine)),
             object_ref_store,
-            ingestion_job_store: Arc::new(SqliteIngestionJobStore::with_keyword_backend(
+            ingestion_job_store: Arc::new(PostgresIngestionJobStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -1108,14 +1104,14 @@ impl KnowledgebaseRuntime {
             )
             .with_database_engine(database_engine)
             .with_quota_limits(quota_limits)),
-            drive_import_metadata_store: Arc::new(SqliteDriveImportMetadataStore::new(
+            drive_import_metadata_store: Arc::new(PostgresDriveImportMetadataStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
             )
             .with_database_engine(database_engine)
             .with_quota_limits(quota_limits)),
-            markdown_index_metadata_store: Arc::new(SqliteMarkdownIndexMetadataStore::new(
+            markdown_index_metadata_store: Arc::new(PostgresMarkdownIndexMetadataStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -1123,7 +1119,7 @@ impl KnowledgebaseRuntime {
             .with_database_engine(database_engine)
             .with_quota_limits(quota_limits)),
             outbox_store: Arc::new(
-                SqliteKnowledgeOutboxStore::new(
+                PostgresKnowledgeOutboxStore::new(
                     pool.clone(),
                     tenant_id,
                     organization_id,
@@ -1137,7 +1133,7 @@ impl KnowledgebaseRuntime {
             outbox_dispatcher:
                 sdkwork_intelligence_knowledgebase_service::outbox::knowledge_outbox_dispatcher_from_env(),
             chunk_store: Arc::new(
-                SqliteKnowledgeChunkStore::with_keyword_backend(
+                PostgresKnowledgeChunkStore::with_keyword_backend(
                     pool.clone(),
                     tenant_id,
                     organization_id,
@@ -1147,15 +1143,15 @@ impl KnowledgebaseRuntime {
                 .with_database_engine(database_engine),
             ),
             context_binding_store: Arc::new(
-                SqliteContextBindingStore::new(pool.clone(), organization_id)
+                PostgresContextBindingStore::new(pool.clone(), organization_id)
                     .with_database_engine(database_engine),
             ),
             group_space_binding_store: Arc::new(
-                SqliteGroupKnowledgeSpaceBindingStore::new(pool.clone())
+                PostgresGroupKnowledgeSpaceBindingStore::new(pool.clone())
                     .with_database_engine(database_engine),
             ),
             group_launch_ticket_consumer: None,
-            browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
+            browser_projection_store: Arc::new(PostgresKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
                 organization_id,
@@ -1180,7 +1176,7 @@ impl KnowledgebaseRuntime {
             access_control,
             knowledge_engines,
             commerce_store: Arc::new(
-                SqliteCommerceStore::new(pool.clone(), organization_id)
+                PostgresCommerceStore::new(pool.clone(), organization_id)
                     .with_database_engine(database_engine),
             ),
             snowflake_node_lease,
@@ -1225,7 +1221,7 @@ impl KnowledgebaseRuntime {
         }
     }
 
-    pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {
+    pub(crate) fn commerce_store(&self) -> &PostgresCommerceStore {
         &self.commerce_store
     }
 
@@ -1346,59 +1342,59 @@ impl KnowledgebaseRuntime {
         )
     }
 
-    pub(crate) fn retrieval_store(&self) -> &SqliteKnowledgeChunkRetrievalStore {
+    pub(crate) fn retrieval_store(&self) -> &PostgresKnowledgeChunkRetrievalStore {
         &self.retrieval_store
     }
 
-    pub(crate) fn retrieval_profile_store(&self) -> &SqliteKnowledgeRetrievalProfileStore {
+    pub(crate) fn retrieval_profile_store(&self) -> &PostgresKnowledgeRetrievalProfileStore {
         &self.retrieval_profile_store
     }
 
-    pub(crate) fn index_store(&self) -> &SqliteKnowledgeIndexStore {
+    pub(crate) fn index_store(&self) -> &PostgresKnowledgeIndexStore {
         &self.index_store
     }
 
-    pub(crate) fn embedding_store(&self) -> &SqliteKnowledgeEmbeddingStore {
+    pub(crate) fn embedding_store(&self) -> &PostgresKnowledgeEmbeddingStore {
         &self.embedding_store
     }
 
-    pub(crate) fn okf_concept_store(&self) -> &SqliteKnowledgeOkfConceptStore {
+    pub(crate) fn okf_concept_store(&self) -> &PostgresKnowledgeOkfConceptStore {
         &self.okf_concept_store
     }
 
-    pub(crate) fn okf_concept_link_store(&self) -> &SqliteKnowledgeOkfConceptLinkStore {
+    pub(crate) fn okf_concept_link_store(&self) -> &PostgresKnowledgeOkfConceptLinkStore {
         &self.okf_concept_link_store
     }
 
-    pub(crate) fn okf_candidate_store(&self) -> &SqliteKnowledgeOkfCandidateStore {
+    pub(crate) fn okf_candidate_store(&self) -> &PostgresKnowledgeOkfCandidateStore {
         &self.okf_candidate_store
     }
 
-    pub(crate) fn space_store(&self) -> &SqliteKnowledgeSpaceStore {
+    pub(crate) fn space_store(&self) -> &PostgresKnowledgeSpaceStore {
         &self.space_store
     }
 
-    pub(crate) fn document_store(&self) -> &SqliteKnowledgeDocumentStore {
+    pub(crate) fn document_store(&self) -> &PostgresKnowledgeDocumentStore {
         &self.document_store
     }
 
-    pub(crate) fn ingestion_job_store(&self) -> &SqliteIngestionJobStore {
+    pub(crate) fn ingestion_job_store(&self) -> &PostgresIngestionJobStore {
         &self.ingestion_job_store
     }
 
-    pub(crate) fn audit_event_store(&self) -> &SqliteKnowledgeAuditEventStore {
+    pub(crate) fn audit_event_store(&self) -> &PostgresKnowledgeAuditEventStore {
         &self.audit_event_store
     }
 
-    pub(crate) fn drive_import_metadata_store(&self) -> &SqliteDriveImportMetadataStore {
+    pub(crate) fn drive_import_metadata_store(&self) -> &PostgresDriveImportMetadataStore {
         &self.drive_import_metadata_store
     }
 
-    pub(crate) fn markdown_index_metadata_store(&self) -> &SqliteMarkdownIndexMetadataStore {
+    pub(crate) fn markdown_index_metadata_store(&self) -> &PostgresMarkdownIndexMetadataStore {
         &self.markdown_index_metadata_store
     }
 
-    pub(crate) fn outbox_store(&self) -> &SqliteKnowledgeOutboxStore {
+    pub(crate) fn outbox_store(&self) -> &PostgresKnowledgeOutboxStore {
         &self.outbox_store
     }
 
@@ -1409,15 +1405,15 @@ impl KnowledgebaseRuntime {
         self.outbox_dispatcher.as_ref()
     }
 
-    pub(crate) fn chunk_store(&self) -> &SqliteKnowledgeChunkStore {
+    pub(crate) fn chunk_store(&self) -> &PostgresKnowledgeChunkStore {
         &self.chunk_store
     }
 
-    pub(crate) fn context_binding_store(&self) -> &SqliteContextBindingStore {
+    pub(crate) fn context_binding_store(&self) -> &PostgresContextBindingStore {
         &self.context_binding_store
     }
 
-    pub(crate) fn group_space_binding_store(&self) -> &SqliteGroupKnowledgeSpaceBindingStore {
+    pub(crate) fn group_space_binding_store(&self) -> &PostgresGroupKnowledgeSpaceBindingStore {
         &self.group_space_binding_store
     }
 
@@ -1425,11 +1421,11 @@ impl KnowledgebaseRuntime {
         self.group_launch_ticket_consumer.as_deref()
     }
 
-    pub(crate) fn okf_bundle_file_store(&self) -> &SqliteKnowledgeOkfBundleFileStore {
+    pub(crate) fn okf_bundle_file_store(&self) -> &PostgresKnowledgeOkfBundleFileStore {
         &self.okf_bundle_file_store
     }
 
-    pub(crate) fn source_store(&self) -> &SqliteKnowledgeSourceStore {
+    pub(crate) fn source_store(&self) -> &PostgresKnowledgeSourceStore {
         &self.source_store
     }
 
@@ -1712,15 +1708,15 @@ impl KnowledgebaseRuntime {
             .map_err(|error| error.to_string())
     }
 
-    pub(crate) fn object_ref_store(&self) -> &SqliteKnowledgeDriveObjectRefStore {
+    pub(crate) fn object_ref_store(&self) -> &PostgresKnowledgeDriveObjectRefStore {
         &self.object_ref_store
     }
 
-    pub(crate) fn version_store(&self) -> &SqliteKnowledgeDocumentVersionStore {
+    pub(crate) fn version_store(&self) -> &PostgresKnowledgeDocumentVersionStore {
         &self.version_store
     }
 
-    pub(crate) fn browser_projection_store(&self) -> &SqliteKnowledgeBrowserProjectionStore {
+    pub(crate) fn browser_projection_store(&self) -> &PostgresKnowledgeBrowserProjectionStore {
         &self.browser_projection_store
     }
 

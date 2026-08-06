@@ -23,7 +23,7 @@ const DEFAULT_STALE_CLAIM_SECS: u64 = 300;
 const MAX_CLAIM_OWNER_BYTES: usize = 128;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeOutboxStore {
+pub struct PostgresKnowledgeOutboxStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -33,7 +33,7 @@ pub struct SqliteKnowledgeOutboxStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeOutboxStore {
+impl PostgresKnowledgeOutboxStore {
     pub fn new(
         pool: AnyPool,
         tenant_id: u64,
@@ -79,7 +79,7 @@ impl SqliteKnowledgeOutboxStore {
 }
 
 #[async_trait]
-impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
+impl KnowledgeOutboxStore for PostgresKnowledgeOutboxStore {
     async fn append_event(
         &self,
         record: AppendOutboxEventRecord,

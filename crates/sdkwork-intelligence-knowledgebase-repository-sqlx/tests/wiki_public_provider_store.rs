@@ -1,5 +1,5 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_and_install_schema, SqlxWikiPersistenceStore,
+    connect_postgres_and_install_schema, is_postgres_database_url, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_wiki_persistence::WikiPersistenceScope,
@@ -16,7 +16,10 @@ const PUBLICATION_UUID: &str = "11111111-1111-4111-8111-111111111501";
 
 #[tokio::test]
 async fn active_publication_and_route_resolution_are_scope_isolated_and_non_disclosing() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_public_wiki(&pool).await;
 
     let publication = store
@@ -75,7 +78,10 @@ async fn active_publication_and_route_resolution_are_scope_isolated_and_non_disc
 
 #[tokio::test]
 async fn content_lookup_revalidates_exact_public_version() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_public_wiki(&pool).await;
     let projection = store
         .get_public_content_projection(SCOPE, 501, &projection_uuid(601), 1)
@@ -109,7 +115,10 @@ async fn content_lookup_revalidates_exact_public_version() {
 
 #[tokio::test]
 async fn navigation_and_search_use_bounded_keyset_windows_and_public_filters() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_public_wiki(&pool).await;
 
     let first = store
@@ -172,15 +181,19 @@ async fn navigation_and_search_use_bounded_keyset_windows_and_public_filters() {
         .is_empty());
 }
 
-async fn test_store() -> (sqlx::AnyPool, SqlxWikiPersistenceStore) {
-    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
+async fn test_store() -> Option<(sqlx::AnyPool, SqlxWikiPersistenceStore)> {
+    let database_url = optional_postgres_database_url()?;
+    let pool = connect_postgres_and_install_schema(&database_url)
         .await
-        .expect("install SQLite test schema");
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
-        .await
-        .expect("enable foreign keys");
-    (pool.clone(), SqlxWikiPersistenceStore::new(pool))
+        .expect("install postgres test schema");
+    Some((pool.clone(), SqlxWikiPersistenceStore::new(pool)))
 }
 
 async fn seed_public_wiki(pool: &sqlx::AnyPool) {

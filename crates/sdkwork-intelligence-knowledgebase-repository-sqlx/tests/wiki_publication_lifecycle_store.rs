@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_and_install_schema, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
+    connect_postgres_and_install_schema, is_postgres_database_url, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
     SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
@@ -36,7 +36,10 @@ fn audit_context(request_id: &str) -> WikiLifecycleAuditContext {
 
 #[tokio::test]
 async fn activation_and_pause_are_optimistic_and_emit_provider_events() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_wiki(&pool, "READY", "DRAFT", "PRIVATE", "READY").await;
 
     let activated = store
@@ -120,7 +123,10 @@ async fn activation_and_pause_are_optimistic_and_emit_provider_events() {
 
 #[tokio::test]
 async fn publish_visibility_and_unpublish_advance_only_the_required_generations() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_wiki(&pool, "ACTIVE", "DRAFT", "PRIVATE", "READY").await;
 
     let published = store
@@ -241,7 +247,10 @@ async fn publish_visibility_and_unpublish_advance_only_the_required_generations(
 
 #[tokio::test]
 async fn invalid_private_publish_cross_scope_and_stale_commands_leave_state_unchanged() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_wiki(&pool, "ACTIVE", "DRAFT", "PRIVATE", "READY").await;
 
     let private = store
@@ -307,7 +316,10 @@ async fn invalid_private_publish_cross_scope_and_stale_commands_leave_state_unch
 
 #[tokio::test]
 async fn audit_persistence_failure_rolls_back_publication_and_outbox() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     seed_wiki(&pool, "READY", "DRAFT", "PRIVATE", "READY").await;
     sqlx::query("DROP TABLE kb_audit_event")
         .execute(&pool)
@@ -337,17 +349,21 @@ async fn audit_persistence_failure_rolls_back_publication_and_outbox() {
     assert!(outbox_events(&pool).await.is_empty());
 }
 
-async fn test_store() -> (sqlx::AnyPool, SqlxWikiPersistenceStore) {
-    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
+async fn test_store() -> Option<(sqlx::AnyPool, SqlxWikiPersistenceStore)> {
+    let database_url = optional_postgres_database_url()?;
+    let pool = connect_postgres_and_install_schema(&database_url)
         .await
-        .expect("install SQLite test schema");
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
-        .await
-        .expect("enable foreign keys");
-    let generator = Arc::new(TestIdGenerator::new(20_000));
+        .expect("install postgres test schema");
+    let generator = Arc::new(TestIdGenerator::new(10_000));
     let store = SqlxWikiPersistenceStore::with_id_generator(pool.clone(), generator);
-    (pool, store)
+    Some((pool, store))
 }
 
 async fn seed_wiki(

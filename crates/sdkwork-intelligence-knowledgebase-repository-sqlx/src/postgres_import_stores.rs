@@ -49,7 +49,7 @@ const INITIAL_VERSION: i64 = 0;
 const OUTBOX_STATUS_PENDING: i64 = 0;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeSourceStore {
+pub struct PostgresKnowledgeSourceStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -57,7 +57,7 @@ pub struct SqliteKnowledgeSourceStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeSourceStore {
+impl PostgresKnowledgeSourceStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -89,7 +89,7 @@ impl SqliteKnowledgeSourceStore {
 }
 
 #[async_trait]
-impl KnowledgeSourceStore for SqliteKnowledgeSourceStore {
+impl KnowledgeSourceStore for PostgresKnowledgeSourceStore {
     async fn create_source(
         &self,
         record: CreateKnowledgeSourceRecord,
@@ -130,7 +130,7 @@ impl KnowledgeSourceStore for SqliteKnowledgeSourceStore {
     }
 }
 
-impl SqliteKnowledgeSourceStore {
+impl PostgresKnowledgeSourceStore {
     async fn get_source_by_identity(
         &self,
         record: &CreateKnowledgeSourceRecord,
@@ -412,7 +412,7 @@ impl SqliteKnowledgeSourceStore {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeDocumentStore {
+pub struct PostgresKnowledgeDocumentStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -422,7 +422,7 @@ pub struct SqliteKnowledgeDocumentStore {
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteKnowledgeDocumentStore {
+impl PostgresKnowledgeDocumentStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -444,7 +444,7 @@ impl SqliteKnowledgeDocumentStore {
             organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -462,7 +462,7 @@ impl SqliteKnowledgeDocumentStore {
 }
 
 #[async_trait]
-impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
+impl KnowledgeDocumentStore for PostgresKnowledgeDocumentStore {
     async fn create_document(
         &self,
         record: CreateKnowledgeDocumentRecord,
@@ -496,7 +496,7 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
         &self,
         document_id: u64,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
-        SqliteKnowledgeDocumentStore::get_document_by_id(self, document_id).await
+        PostgresKnowledgeDocumentStore::get_document_by_id(self, document_id).await
     }
 
     async fn list_documents_for_space(
@@ -519,7 +519,7 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
     }
 }
 
-impl SqliteKnowledgeDocumentStore {
+impl PostgresKnowledgeDocumentStore {
     async fn create_document_with_quota(
         &self,
         record: CreateKnowledgeDocumentRecord,
@@ -529,8 +529,7 @@ impl SqliteKnowledgeDocumentStore {
         let organization_id = document_to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await
@@ -556,8 +555,7 @@ impl SqliteKnowledgeDocumentStore {
         let organization_id = document_to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await
@@ -1122,7 +1120,7 @@ fn validate_document_identity(
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeDocumentVersionStore {
+pub struct PostgresKnowledgeDocumentVersionStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -1130,7 +1128,7 @@ pub struct SqliteKnowledgeDocumentVersionStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeDocumentVersionStore {
+impl PostgresKnowledgeDocumentVersionStore {
     pub async fn create_next_document_version(
         &self,
         record: CreateNextKnowledgeDocumentVersionRecord,
@@ -1305,7 +1303,7 @@ impl SqliteKnowledgeDocumentVersionStore {
 }
 
 #[async_trait]
-impl KnowledgeDocumentVersionStore for SqliteKnowledgeDocumentVersionStore {
+impl KnowledgeDocumentVersionStore for PostgresKnowledgeDocumentVersionStore {
     async fn create_document_version(
         &self,
         record: CreateKnowledgeDocumentVersionRecord,
@@ -1336,7 +1334,7 @@ impl KnowledgeDocumentVersionStore for SqliteKnowledgeDocumentVersionStore {
     }
 }
 
-impl SqliteKnowledgeDocumentVersionStore {
+impl PostgresKnowledgeDocumentVersionStore {
     async fn get_document_version_by_identity(
         &self,
         record: &CreateKnowledgeDocumentVersionRecord,
@@ -1600,24 +1598,25 @@ impl SqliteKnowledgeDocumentVersionStore {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteIngestionJobStore {
+pub struct PostgresIngestionJobStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    #[allow(dead_code)] // 保留 keyword backend 选择机制（当前仅 PostgresTsVector）
     keyword_backend: KeywordSearchBackend,
     timestamp_dialect: SqlTimestampDialect,
     database_engine: DatabaseEngine,
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteIngestionJobStore {
+impl PostgresIngestionJobStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             default_knowledge_id_generator(),
         )
     }
@@ -1632,7 +1631,7 @@ impl SqliteIngestionJobStore {
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             id_generator,
         )
     }
@@ -1651,7 +1650,7 @@ impl SqliteIngestionJobStore {
             id_generator,
             keyword_backend,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -1692,8 +1691,7 @@ impl SqliteIngestionJobStore {
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await
@@ -1822,8 +1820,7 @@ impl SqliteIngestionJobStore {
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await
@@ -1869,7 +1866,6 @@ impl SqliteIngestionJobStore {
                 tenant_id: self.tenant_id,
                 organization_id: self.organization_id,
                 id_generator: &self.id_generator,
-                keyword_backend: self.keyword_backend,
                 timestamp_dialect: self.timestamp_dialect,
                 document_version_id: record.document_version_id,
             },
@@ -1957,7 +1953,7 @@ impl SqliteIngestionJobStore {
 }
 
 #[async_trait]
-impl IngestionJobStore for SqliteIngestionJobStore {
+impl IngestionJobStore for PostgresIngestionJobStore {
     async fn create_or_get_job(
         &self,
         record: CreateIngestionJobRecord,
@@ -2536,19 +2532,19 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         job_id: u64,
         outbox: AppendOutboxEventRecord,
     ) -> Result<IngestionJob, IngestionJobStoreError> {
-        SqliteIngestionJobStore::mark_running_job_succeeded_with_outbox(self, job_id, outbox).await
+        PostgresIngestionJobStore::mark_running_job_succeeded_with_outbox(self, job_id, outbox).await
     }
 
     async fn complete_running_ingestion_with_chunks_and_outbox(
         &self,
         record: CompleteRunningIngestionRecord,
     ) -> Result<CompletedIngestionResult, IngestionJobStoreError> {
-        SqliteIngestionJobStore::complete_running_ingestion_with_chunks_and_outbox(self, record)
+        PostgresIngestionJobStore::complete_running_ingestion_with_chunks_and_outbox(self, record)
             .await
     }
 }
 
-impl SqliteIngestionJobStore {
+impl PostgresIngestionJobStore {
     async fn create_or_get_job_with_quota(
         &self,
         record: CreateIngestionJobRecord,
@@ -2558,8 +2554,7 @@ impl SqliteIngestionJobStore {
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
         let mut transaction = begin_tenant_quota_transaction(
             &self.pool,
-            self.database_engine,
-            tenant_id,
+                        tenant_id,
             organization_id,
         )
         .await

@@ -6,9 +6,8 @@ use sdkwork_knowledgebase_observability::environment::is_production_like_environ
 use sdkwork_web_axum::WebFrameworkLayer;
 use sdkwork_web_core::{AuditEmitter, WebRequestContextResolver};
 use sdkwork_web_store_sqlx::{
-    connect_and_bootstrap_webstore_database_from_env, shared_audit_emitter,
-    shared_audit_emitter_pg, shared_dynamic_policy_bundle, shared_dynamic_policy_bundle_pg,
-    SqlxDynamicPolicyBundle,
+    connect_and_bootstrap_webstore_database_from_env, shared_audit_emitter_pg,
+    shared_dynamic_policy_bundle_pg, SqlxDynamicPolicyBundle,
 };
 use tokio::sync::OnceCell;
 
@@ -25,12 +24,6 @@ async fn build_knowledgebase_web_store_bundle() -> Option<Arc<KnowledgebaseWebSt
         .ok()?;
     if let Err(error) = crate::web_policy_bootstrap::seed_default_tenant_web_policies(&host).await {
         eprintln!("[knowledgebase] web policy bootstrap skipped: {error}");
-    }
-    if let Some(sqlite) = host.pool().as_sqlite().cloned() {
-        return Some(Arc::new(KnowledgebaseWebStoreBundle {
-            audit_emitter: shared_audit_emitter(sqlite.clone()),
-            policy_bundle: shared_dynamic_policy_bundle(sqlite),
-        }));
     }
     if let Some(postgres) = host.pool().as_postgres().cloned() {
         return Some(Arc::new(KnowledgebaseWebStoreBundle {

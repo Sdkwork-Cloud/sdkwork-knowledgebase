@@ -13,8 +13,8 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_knowledgebase_and_install_schema, database_config_from_url, is_postgres_database_url,
     knowledgebase_health_check, knowledgebase_process_pool_budget_from_url,
     require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
-    SqliteGroupKnowledgeSpaceBindingStore, SqliteKnowledgeOkfBundleFileStore,
-    SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
+    PostgresGroupKnowledgeSpaceBindingStore, PostgresKnowledgeOkfBundleFileStore,
+    PostgresKnowledgeSpaceStore, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_rpc::GroupKnowledgeSpaceLifecycleRuntime;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -125,11 +125,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         Ok(Self {
             pool,
             drive_pool,
-            database_engine: if is_postgres_database_url(database_url) {
-                DatabaseEngine::Postgres
-            } else {
-                DatabaseEngine::Sqlite
-            },
+            database_engine: DatabaseEngine::Postgres,
             drive_storage: Arc::new(drive_storage),
             tenant_id,
             organization_id,
@@ -160,11 +156,11 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         let tenant_id = scope.tenant_id.to_string();
         GroupKnowledgeSpaceLifecycleDependencies {
             binding_store: Arc::new(
-                SqliteGroupKnowledgeSpaceBindingStore::new(self.pool.clone())
+                PostgresGroupKnowledgeSpaceBindingStore::new(self.pool.clone())
                     .with_database_engine(self.database_engine),
             ),
             space_store: Arc::new(
-                SqliteKnowledgeSpaceStore::new(
+                PostgresKnowledgeSpaceStore::new(
                     self.pool.clone(),
                     scope.tenant_id,
                     scope.organization_id,
@@ -176,7 +172,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                     .with_database_engine(self.database_engine),
             ),
             bundle_file_store: Arc::new(
-                SqliteKnowledgeOkfBundleFileStore::new(
+                PostgresKnowledgeOkfBundleFileStore::new(
                     self.pool.clone(),
                     scope.tenant_id,
                     scope.organization_id,
@@ -339,10 +335,10 @@ impl GroupKnowledgeSpaceLifecycleRuntime for KnowledgebaseGroupKnowledgeSpaceLif
 }
 
 struct GroupKnowledgeSpaceLifecycleDependencies {
-    binding_store: Arc<SqliteGroupKnowledgeSpaceBindingStore>,
-    space_store: Arc<SqliteKnowledgeSpaceStore>,
+    binding_store: Arc<PostgresGroupKnowledgeSpaceBindingStore>,
+    space_store: Arc<PostgresKnowledgeSpaceStore>,
     wiki_store: Arc<SqlxWikiPersistenceStore>,
-    bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
+    bundle_file_store: Arc<PostgresKnowledgeOkfBundleFileStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,

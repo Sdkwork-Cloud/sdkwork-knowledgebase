@@ -51,7 +51,7 @@ sdkwork-web-store-sqlx = { path = "../sdkwork-web-framework/crates/sdkwork-web-s
 sdkwork-web-bootstrap = { path = "../sdkwork-web-framework/crates/sdkwork-web-bootstrap" }
 sdkwork-web-store-redis = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-redis" }
 sdkwork-drive-storage-local = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-local" }
-sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id", features = ["postgres", "sqlite"] }
+sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id", features = ["postgres"] }
 async-trait = "0.1"
 ammonia = "4"
 axum = { version = "0.8", features = ["ws"] }

@@ -7,7 +7,6 @@ pub mod bootstrap;
 pub mod postgres;
 pub mod postgres_tenant_session;
 pub mod sql_timestamp;
-pub mod sqlite;
 
 pub use bootstrap::{
     connect_knowledgebase_any_pool_from_url, connect_knowledgebase_pool_from_env,
@@ -25,26 +24,14 @@ pub use postgres_tenant_session::{
     resolve_postgres_rls_tenant_id, set_postgres_session_organization_id,
     set_postgres_session_tenant_id, POSTGRES_ORGANIZATION_SESSION_KEY, POSTGRES_TENANT_SESSION_KEY,
 };
-pub use sqlite::{
-    connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
-    install_sqlite_schema, sqlite_health_check,
-};
 
 pub async fn connect_knowledgebase_and_install_schema(
     database_url: &str,
 ) -> Result<sqlx::AnyPool, sqlx::Error> {
-    match knowledgebase_database_engine_from_url(database_url).map_err(|error| {
-        sqlx::Error::Configuration(format!("invalid knowledgebase database config: {error}").into())
-    })? {
-        sdkwork_database_config::DatabaseEngine::Sqlite => {
-            sqlite::connect_sqlite_and_install_schema(database_url).await
-        }
-        sdkwork_database_config::DatabaseEngine::Postgres => {
-            postgres::connect_postgres_via_framework_lifecycle(database_url)
-                .await
-                .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))
-        }
-    }
+    // 服务端权威持久化仅支持 PostgreSQL（DATABASE_SPEC：authoritative-server）
+    postgres::connect_postgres_via_framework_lifecycle(database_url)
+        .await
+        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))
 }
 
 pub async fn knowledgebase_health_check(pool: &sqlx::AnyPool) -> Result<(), sqlx::Error> {

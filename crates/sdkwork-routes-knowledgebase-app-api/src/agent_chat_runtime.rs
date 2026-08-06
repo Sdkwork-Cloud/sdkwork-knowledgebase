@@ -1,5 +1,5 @@
 use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter, KnowledgeDocumentKind};
-use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeRetrievalProfileStore;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::PostgresKnowledgeRetrievalProfileStore;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     format_scoped_document_id, parse_namespace_space_id, parse_scoped_document_id,
     KnowledgeEngineExecutionHandle,
@@ -25,11 +25,11 @@ use crate::KnowledgeAppRequestContext;
 
 #[derive(Clone)]
 pub struct RuntimeRetrievalPlanResolver {
-    store: Arc<SqliteKnowledgeRetrievalProfileStore>,
+    store: Arc<PostgresKnowledgeRetrievalProfileStore>,
 }
 
 impl RuntimeRetrievalPlanResolver {
-    pub fn new(store: Arc<SqliteKnowledgeRetrievalProfileStore>) -> Self {
+    pub fn new(store: Arc<PostgresKnowledgeRetrievalProfileStore>) -> Self {
         Self { store }
     }
 }

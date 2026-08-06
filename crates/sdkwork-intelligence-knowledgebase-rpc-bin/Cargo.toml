@@ -21,7 +21,7 @@ tracing = { version = "0.1", features = ["attributes"] }
 tonic = { version = "0.14", features = ["transport"] }
 tonic-health = "0.14"
 rustls.workspace = true
-sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any", "migrate"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "any", "migrate"] }
 sdkwork-drive-storage-local.workspace = true
 sdkwork-database-config.workspace = true
 sdkwork-database-sqlx.workspace = true

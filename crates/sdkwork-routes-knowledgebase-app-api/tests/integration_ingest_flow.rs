@@ -1,3 +1,4 @@
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
@@ -6,10 +7,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let space_id = create_space(&runtime).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -54,7 +65,10 @@ async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_retrieves_document_content_via_contract_route() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let space_id = create_space(&runtime).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let payload_markdown = "# Title\n\nFirst paragraph.\n\nSecond paragraph.";
@@ -147,7 +161,10 @@ async fn integration_hosted_ingest_retrieves_document_content_via_contract_route
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_lists_document_versions_via_contract_route() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let space_id = create_space(&runtime).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -231,7 +248,10 @@ async fn integration_hosted_ingest_lists_document_versions_via_contract_route() 
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn integration_hosted_ingest_updates_document_visibility_via_contract_route() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let space_id = create_space(&runtime).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -374,7 +394,11 @@ fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
         .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
 }
 
-async fn test_runtime() -> KnowledgebaseRuntime {
+async fn test_runtime() -> Option<KnowledgebaseRuntime> {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return None;
+    };
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
@@ -395,17 +419,10 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         drive_root.to_string_lossy().as_ref(),
     );
 
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
     KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("initialize integration runtime")
+        .into()
 }
 
 async fn response_body_json(response: axum::response::Response) -> serde_json::Value {

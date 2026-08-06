@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, SqliteKnowledgeSpaceStore,
+    connect_knowledgebase_and_install_schema, is_postgres_database_url, PostgresKnowledgeSpaceStore,
     SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
@@ -31,13 +31,16 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 #[tokio::test]
 async fn provider_migration_is_idempotent_claimed_versioned_and_reversible() {
-    let pool = migration_test_pool("provider-migration-lifecycle").await;
+let Some(pool) = migration_test_pool("provider-migration-lifecycle").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 110_001,
         organization_id: 71,
     };
     let space_store =
-        SqliteKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
+        PostgresKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
     let space = space_store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Provider migration space".to_string(),
@@ -236,7 +239,10 @@ async fn provider_migration_is_idempotent_claimed_versioned_and_reversible() {
 
 #[tokio::test]
 async fn provider_migration_rejects_stale_claim_token_after_lease_recovery() {
-    let (pool, scope, space_id, source, target) = migration_fixture("stale-claim").await;
+let Some((pool, scope, space_id, source, target)) = migration_fixture("stale-claim").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let store = SqlxKnowledgeEngineProviderMigrationStore::new(pool.clone());
     let operation = store
         .create_operation(
@@ -340,20 +346,20 @@ async fn provider_migration_rejects_stale_claim_token_after_lease_recovery() {
 
 async fn migration_fixture(
     name: &str,
-) -> (
+) -> Option<(
     sqlx::AnyPool,
     KnowledgeEngineProviderScope,
     u64,
     KnowledgeEngineProviderBinding,
     KnowledgeEngineProviderBinding,
-) {
-    let pool = migration_test_pool(name).await;
+)> {
+    let pool = migration_test_pool(name).await?;
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 120_001,
         organization_id: 72,
     };
     let space_store =
-        SqliteKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
+        PostgresKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
     let space = space_store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Migration fixture".to_string(),
@@ -384,7 +390,7 @@ async fn migration_fixture(
         "target",
     )
     .await;
-    (pool, scope, space.id, source, target)
+    Some((pool, scope, space.id, source, target))
 }
 
 async fn create_tested_binding(
@@ -431,8 +437,13 @@ async fn create_tested_binding(
         .expect("record successful test")
 }
 
-async fn migration_test_pool(_test_name: &str) -> sqlx::AnyPool {
-    connect_knowledgebase_and_install_schema("sqlite::memory:")
+async fn migration_test_pool(_test_name: &str) -> Option<sqlx::AnyPool> {
+    let database_url = std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))?;
+    let pool = connect_knowledgebase_and_install_schema(&database_url)
         .await
-        .expect("install Provider migration schema")
+        .expect("install postgres test schema");
+    Some(pool)
 }

@@ -1,4 +1,7 @@
-//! Cross-engine SQL timestamp bindings for SQLite and PostgreSQL pools.
+//! PostgreSQL SQL timestamp bindings.
+//!
+//! 服务端权威持久化仅支持 PostgreSQL（DATABASE_SPEC：authoritative-server）；
+//! SQLite 仅用于 client-local 桌面端，不经过本 crate。
 
 use sdkwork_database_config::DatabaseEngine;
 use std::fmt::Display;
@@ -7,39 +10,25 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SqlTimestampDialect {
     #[default]
-    Sqlite,
     Postgres,
 }
 
 impl SqlTimestampDialect {
-    pub fn from_database_engine(engine: DatabaseEngine) -> Self {
-        match engine {
-            DatabaseEngine::Postgres => Self::Postgres,
-            DatabaseEngine::Sqlite => Self::Sqlite,
-        }
+    pub fn from_database_engine(_engine: DatabaseEngine) -> Self {
+        // 服务端持久化仅支持 PostgreSQL；非 Postgres engine 不参与服务端执行路径。
+        Self::Postgres
     }
 
     pub fn sql_timestamp_expr(self, placeholder: &str) -> String {
-        match self {
-            Self::Postgres => format!("CAST({placeholder} AS TIMESTAMP)"),
-            Self::Sqlite => placeholder.to_string(),
-        }
+        format!("CAST({placeholder} AS TIMESTAMP)")
     }
 
     pub fn sql_json_expr(self, placeholder: &str) -> String {
-        match self {
-            Self::Postgres => format!("CAST({placeholder} AS JSONB)"),
-            Self::Sqlite => placeholder.to_string(),
-        }
+        format!("CAST({placeholder} AS JSONB)")
     }
 
     pub fn sql_timestamp_text_expr(self, column: &str) -> String {
-        match self {
-            Self::Postgres => {
-                format!("TO_CHAR({column}, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
-            }
-            Self::Sqlite => format!("CAST({column} AS TEXT)"),
-        }
+        format!("TO_CHAR({column}, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
     }
 }
 
@@ -51,21 +40,14 @@ pub fn utc_sql_timestamp_text() -> Result<String, String> {
 
 pub fn push_sql_timestamp_bind<Sep>(
     row: &mut sqlx::query_builder::Separated<'_, sqlx::Any, Sep>,
-    dialect: SqlTimestampDialect,
+    _dialect: SqlTimestampDialect,
     value: &str,
 ) where
     Sep: Display,
 {
-    match dialect {
-        SqlTimestampDialect::Postgres => {
-            row.push("CAST(");
-            row.push_bind_unseparated(value.to_owned());
-            row.push_unseparated(" AS TIMESTAMP)");
-        }
-        SqlTimestampDialect::Sqlite => {
-            row.push_bind(value.to_owned());
-        }
-    }
+    row.push("CAST(");
+    row.push_bind_unseparated(value.to_owned());
+    row.push_unseparated(" AS TIMESTAMP)");
 }
 
 #[cfg(test)]
@@ -85,16 +67,6 @@ mod tests {
         assert_eq!(
             SqlTimestampDialect::Postgres.sql_timestamp_text_expr("created_at"),
             "TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')"
-        );
-    }
-
-    #[test]
-    fn sqlite_dialect_preserves_text_bindings() {
-        assert_eq!(SqlTimestampDialect::Sqlite.sql_timestamp_expr("$1"), "$1");
-        assert_eq!(SqlTimestampDialect::Sqlite.sql_json_expr("$2"), "$2");
-        assert_eq!(
-            SqlTimestampDialect::Sqlite.sql_timestamp_text_expr("created_at"),
-            "CAST(created_at AS TEXT)"
         );
     }
 }

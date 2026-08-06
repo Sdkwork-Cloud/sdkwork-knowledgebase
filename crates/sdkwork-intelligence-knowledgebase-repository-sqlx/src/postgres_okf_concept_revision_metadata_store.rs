@@ -26,12 +26,12 @@ use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerato
 use crate::quota_transaction::{
     begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
 };
-use crate::sqlite_knowledge_document_metadata_transaction::create_or_get_object_ref_in_transaction;
-use crate::sqlite_okf_candidate_transaction::{
+use crate::postgres_knowledge_document_metadata_transaction::create_or_get_object_ref_in_transaction;
+use crate::postgres_okf_candidate_transaction::{
     update_okf_candidate_state_by_concept_row_id_in_transaction,
     upsert_okf_candidate_in_transaction,
 };
-use crate::sqlite_okf_concept_transaction::{
+use crate::postgres_okf_concept_transaction::{
     next_okf_revision_no_in_transaction, upsert_okf_concept_in_transaction,
 };
 
@@ -39,7 +39,7 @@ const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
-pub struct SqliteOkfConceptRevisionMetadataStore {
+pub struct PostgresOkfConceptRevisionMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -49,7 +49,7 @@ pub struct SqliteOkfConceptRevisionMetadataStore {
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteOkfConceptRevisionMetadataStore {
+impl PostgresOkfConceptRevisionMetadataStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -71,7 +71,7 @@ impl SqliteOkfConceptRevisionMetadataStore {
             organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -89,7 +89,7 @@ impl SqliteOkfConceptRevisionMetadataStore {
 }
 
 #[async_trait]
-impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
+impl OkfConceptRevisionMetadataStore for PostgresOkfConceptRevisionMetadataStore {
     async fn prepare_concept_revision_slot(
         &self,
         concept: UpsertKnowledgeOkfConceptRecord,
@@ -146,8 +146,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         let mut transaction = if self.quota_limits.is_some() {
             begin_tenant_quota_transaction(
                 &self.pool,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
             )
             .await
@@ -232,8 +231,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         if let Some(limits) = self.quota_limits {
             enforce_tenant_quotas_after_write(
                 &mut transaction,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
                 limits,
             )
@@ -269,8 +267,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         let mut transaction = if self.quota_limits.is_some() {
             begin_tenant_quota_transaction(
                 &self.pool,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
             )
             .await
@@ -316,8 +313,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         if let Some(limits) = self.quota_limits {
             enforce_tenant_quotas_after_write(
                 &mut transaction,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
                 limits,
             )

@@ -1,7 +1,7 @@
 use sdkwork_database_id::default_snowflake_epoch_millis;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
-    SqliteKnowledgeSpaceStore,
+    PostgresKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
@@ -9,87 +9,18 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
 use sqlx::AnyPool;
 use std::sync::{Arc, Mutex};
 
-#[tokio::test]
-async fn sqlite_space_insert_uses_injected_runtime_snowflake_id() {
-    let pool = sqlite_pool().await;
-    apply_sqlite_migration(&pool).await;
-    let generated_id = 9_223_000_000_001_u64;
-    let store = SqliteKnowledgeSpaceStore::with_id_generator(
-        pool.clone(),
-        9001,
-        7001,
-        fixed_id_generator([generated_id]),
-    );
 
-    let created = store
-        .create_space(CreateKnowledgeSpaceRecord {
-            name: "Snowflake Space".to_string(),
-            description: None,
-            okf_bundle_initialized: false,
-            knowledge_mode: Default::default(),
-        })
-        .await
-        .unwrap();
-
-    assert_eq!(created.id, generated_id);
-
-    let stored_id: i64 = sqlx::query_scalar("SELECT id FROM kb_space WHERE uuid = $1")
-        .bind(created.uuid)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(stored_id, generated_id as i64);
-}
-
-#[tokio::test]
-async fn sqlite_core_tables_reject_missing_runtime_ids() {
-    let pool = sqlite_pool().await;
-    apply_sqlite_migration(&pool).await;
-
-    let result = sqlx::query(
-        r#"
-        INSERT INTO kb_space (
-            uuid,
-            tenant_id,
-            organization_id,
-            name,
-            status,
-            okf_bundle_initialized,
-            created_at,
-            updated_at,
-            version
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        "#,
-    )
-    .bind("space-without-id")
-    .bind(1_i64)
-    .bind(0_i64)
-    .bind("Missing Runtime ID")
-    .bind(1_i64)
-    .bind(0_i64)
-    .bind("2026-06-05T00:00:00Z")
-    .bind("2026-06-05T00:00:00Z")
-    .bind(0_i64)
-    .execute(&pool)
-    .await;
-
-    assert!(
-        result.is_err(),
-        "SQLite kb_* tables must not generate ids when runtime insert omits id"
-    );
-}
 
 #[test]
-fn sqlite_repository_inserts_declare_explicit_id_columns() {
+fn postgres_repository_inserts_declare_explicit_id_columns() {
     for (path, source) in [
         (
-            "src/sqlite_space_stores.rs",
-            include_str!("../src/sqlite_space_stores.rs"),
+            "src/postgres_space_stores.rs",
+            include_str!("../src/postgres_space_stores.rs"),
         ),
         (
-            "src/sqlite_import_stores.rs",
-            include_str!("../src/sqlite_import_stores.rs"),
+            "src/postgres_import_stores.rs",
+            include_str!("../src/postgres_import_stores.rs"),
         ),
         (
             "src/drive_object_ref_store.rs",
@@ -206,12 +137,3 @@ fn kb_insert_column_blocks(source: &str) -> Vec<InsertColumns> {
     inserts
 }
 
-async fn sqlite_pool() -> AnyPool {
-    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
-        "sqlite::memory:",
-    )
-    .await
-    .unwrap()
-}
-
-async fn apply_sqlite_migration(_pool: &AnyPool) {}

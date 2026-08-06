@@ -283,8 +283,6 @@ fn database_engine_label(database_url: &str) -> &'static str {
     let normalized = database_url.trim().to_ascii_lowercase();
     if normalized.starts_with("postgres://") || normalized.starts_with("postgresql://") {
         "postgres"
-    } else if normalized.starts_with("sqlite:") {
-        "sqlite"
     } else {
         "other"
     }
@@ -333,10 +331,7 @@ mod tests {
             database_engine_label("postgres://user:secret@db.internal/knowledge"),
             "postgres"
         );
-        assert_eq!(
-            database_engine_label("sqlite://data/knowledgebase.db?mode=rwc"),
-            "sqlite"
-        );
+        assert_eq!(database_engine_label("other://data/knowledgebase.db"), "other");
     }
 
     #[test]

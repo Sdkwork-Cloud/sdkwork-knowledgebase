@@ -62,9 +62,10 @@ mod tests {
     #[tokio::test]
     async fn livez_returns_ok_without_readiness_dependency() {
         sqlx::any::install_default_drivers();
-        let pool = sqlx::AnyPool::connect("sqlite::memory:")
-            .await
-            .expect("sqlite memory pool");
+        // Lazy pool: livez must not depend on any reachable database, and server
+        // persistence is PostgreSQL-only (DATABASE_SPEC: authoritative-server).
+        let pool = sqlx::AnyPool::connect_lazy("postgresql://localhost/worker_health_probe")
+            .expect("pool options");
         let app = worker_health_router(Arc::new(DbReadinessCheck::new(pool)));
         let response = app
             .oneshot(

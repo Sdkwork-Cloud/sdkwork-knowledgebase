@@ -17,7 +17,6 @@ use crate::db::postgres_tenant_session::{
 
 pub type KnowledgebaseDatabasePool = DatabasePool;
 
-const DEFAULT_SQLITE_POOL_MAX_CONNECTIONS: u32 = 5;
 const DEFAULT_POSTGRES_PROCESS_MAX_CONNECTIONS: u32 = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,19 +47,13 @@ fn process_pool_budget(
     database_url: &str,
     configured_max_connections: Option<u32>,
 ) -> Result<KnowledgebaseProcessPoolBudget, PoolError> {
-    if engine == DatabaseEngine::Sqlite && database_url.trim() == "sqlite::memory:" {
-        return Ok(KnowledgebaseProcessPoolBudget {
-            any_max_connections: 1,
-            postgres_max_connections: None,
-        });
+    // 服务端权威持久化仅支持 PostgreSQL（DATABASE_SPEC：authoritative-server）
+    if engine != DatabaseEngine::Postgres {
+        return Err(PoolError::DatabaseConfig(
+            "Knowledgebase server persistence requires a PostgreSQL database url".to_string(),
+        ));
     }
-    if engine == DatabaseEngine::Sqlite {
-        return Ok(KnowledgebaseProcessPoolBudget {
-            any_max_connections: configured_max_connections
-                .unwrap_or(DEFAULT_SQLITE_POOL_MAX_CONNECTIONS),
-            postgres_max_connections: None,
-        });
-    }
+    let _ = database_url;
 
     let total = configured_max_connections.unwrap_or(DEFAULT_POSTGRES_PROCESS_MAX_CONNECTIONS);
     if total < 2 {
@@ -288,20 +281,6 @@ fn map_pool_error(error: PoolError) -> sqlx::Error {
     sqlx::Error::Configuration(error.to_string().into())
 }
 
-pub async fn connect_sqlite_pool_via_framework(database_url: &str) -> Result<AnyPool, sqlx::Error> {
-    let config = database_config_from_url(database_url).map_err(map_pool_error)?;
-    if config.engine != DatabaseEngine::Sqlite {
-        return Err(sqlx::Error::Configuration(
-            "expected sqlite knowledgebase database url".into(),
-        ));
-    }
-    sqlx::any::install_default_drivers();
-    sqlx::any::AnyPoolOptions::new()
-        .max_connections(config.max_connections)
-        .connect(&config.url)
-        .await
-        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))
-}
 
 pub async fn connect_postgres_pool_via_framework(
     database_url: &str,
@@ -354,17 +333,6 @@ mod tests {
         .is_err());
     }
 
-    #[test]
-    fn in_memory_sqlite_pool_is_forced_to_one_connection() {
-        assert_eq!(
-            process_pool_budget(DatabaseEngine::Sqlite, "sqlite::memory:", Some(100))
-                .expect("allocate SQLite pool budget"),
-            KnowledgebaseProcessPoolBudget {
-                any_max_connections: 1,
-                postgres_max_connections: None,
-            }
-        );
-    }
 
     #[test]
     fn postgres_tenant_option_preserves_existing_connection_options() {

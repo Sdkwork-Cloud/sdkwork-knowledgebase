@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_and_install_schema, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
+    connect_postgres_and_install_schema, is_postgres_database_url, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
     SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
@@ -32,7 +32,10 @@ const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
 
 #[tokio::test]
 async fn publication_and_checkpoint_provisioning_are_idempotent_scoped_and_optimistic() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
 
     let first = store
@@ -112,7 +115,10 @@ async fn publication_and_checkpoint_provisioning_are_idempotent_scoped_and_optim
 
 #[tokio::test]
 async fn backfill_candidates_are_bounded_keyset_ordered_and_exclude_complete_publications() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     for (space_id, drive_space_uuid) in [
         (501, "drive-space-501"),
         (502, "drive-space-502"),
@@ -185,7 +191,10 @@ async fn backfill_candidates_are_bounded_keyset_ordered_and_exclude_complete_pub
 
 #[tokio::test]
 async fn checkpoint_listing_is_bounded_keyset_ordered_and_scope_isolated() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let mut expected = Vec::new();
     for space_id in [501, 502, 503] {
         expected.push(
@@ -274,7 +283,10 @@ async fn checkpoint_listing_is_bounded_keyset_ordered_and_scope_isolated() {
 
 #[tokio::test]
 async fn stable_drive_node_upsert_preserves_identity_and_fences_processing() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
     let publication = provision_bound_publication(&store).await;
 
@@ -526,7 +538,10 @@ async fn stable_drive_node_upsert_preserves_identity_and_fences_processing() {
 
 #[tokio::test]
 async fn drive_inbox_detects_gaps_deduplicates_and_advances_strictly_in_order() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
     let publication = provision_bound_publication(&store).await;
     let checkpoint = store
@@ -629,7 +644,10 @@ async fn drive_inbox_detects_gaps_deduplicates_and_advances_strictly_in_order() 
 
 #[tokio::test]
 async fn drive_event_application_atomically_revokes_public_route_and_advances_checkpoint() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
     let publication = provision_bound_publication(&store).await;
     let checkpoint = store
@@ -772,7 +790,10 @@ async fn drive_event_application_atomically_revokes_public_route_and_advances_ch
 
 #[tokio::test]
 async fn invalid_drive_projection_mutation_rolls_back_before_checkpoint_advance() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
     let publication = provision_bound_publication(&store).await;
     let checkpoint = store
@@ -834,7 +855,10 @@ async fn invalid_drive_projection_mutation_rolls_back_before_checkpoint_advance(
 
 #[tokio::test]
 async fn dead_lettered_gap_can_be_reconciled_with_a_fenced_bounded_checkpoint() {
-    let (pool, store) = test_store().await;
+let Some((pool, store)) = test_store().await else {
+    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
     let publication = provision_bound_publication(&store).await;
     let checkpoint = store
@@ -938,17 +962,21 @@ async fn dead_lettered_gap_can_be_reconciled_with_a_fenced_bounded_checkpoint() 
     assert_eq!(ignored_count, 2);
 }
 
-async fn test_store() -> (sqlx::AnyPool, SqlxWikiPersistenceStore) {
-    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
+async fn test_store() -> Option<(sqlx::AnyPool, SqlxWikiPersistenceStore)> {
+    let database_url = optional_postgres_database_url()?;
+    let pool = connect_postgres_and_install_schema(&database_url)
         .await
-        .expect("install SQLite test schema");
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
-        .await
-        .expect("enable foreign keys");
+        .expect("install postgres test schema");
     let generator = Arc::new(TestIdGenerator::new(10_000));
     let store = SqlxWikiPersistenceStore::with_id_generator(pool.clone(), generator);
-    (pool, store)
+    Some((pool, store))
 }
 
 async fn insert_space(

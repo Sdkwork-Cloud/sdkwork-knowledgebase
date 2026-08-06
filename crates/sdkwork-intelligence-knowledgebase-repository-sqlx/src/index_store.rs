@@ -27,7 +27,7 @@ pub enum KnowledgeIndexStoreError {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeIndexStore {
+pub struct PostgresKnowledgeIndexStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -35,7 +35,7 @@ pub struct SqliteKnowledgeIndexStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeIndexStore {
+impl PostgresKnowledgeIndexStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -302,12 +302,12 @@ impl SqliteKnowledgeIndexStore {
 }
 
 #[async_trait]
-impl KnowledgeIndexStore for SqliteKnowledgeIndexStore {
+impl KnowledgeIndexStore for PostgresKnowledgeIndexStore {
     async fn get_index(
         &self,
         index_id: u64,
     ) -> Result<KnowledgeIndex, PortKnowledgeIndexStoreError> {
-        SqliteKnowledgeIndexStore::get_index(self, index_id)
+        PostgresKnowledgeIndexStore::get_index(self, index_id)
             .await
             .map_err(map_index_store_port_error)
     }
@@ -317,7 +317,7 @@ impl KnowledgeIndexStore for SqliteKnowledgeIndexStore {
         space_id: u64,
         collection_id: u64,
     ) -> Result<KnowledgeIndex, PortKnowledgeIndexStoreError> {
-        SqliteKnowledgeIndexStore::get_or_create_active_vector_index(self, space_id, collection_id)
+        PostgresKnowledgeIndexStore::get_or_create_active_vector_index(self, space_id, collection_id)
             .await
             .map_err(map_index_store_port_error)
     }

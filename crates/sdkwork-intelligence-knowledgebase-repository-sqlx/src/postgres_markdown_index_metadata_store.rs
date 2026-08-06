@@ -14,14 +14,14 @@ use crate::id::{default_knowledge_id_generator, KnowledgeIdGenerator};
 use crate::quota_transaction::{
     begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
 };
-use crate::sqlite_knowledge_document_metadata_transaction::{
+use crate::postgres_knowledge_document_metadata_transaction::{
     bind_document_current_version_in_transaction, create_or_get_document_in_transaction,
     create_or_get_document_version_in_transaction, create_or_get_object_ref_in_transaction,
     create_or_get_source_in_transaction,
 };
 
 #[derive(Debug, Clone)]
-pub struct SqliteMarkdownIndexMetadataStore {
+pub struct PostgresMarkdownIndexMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -31,7 +31,7 @@ pub struct SqliteMarkdownIndexMetadataStore {
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteMarkdownIndexMetadataStore {
+impl PostgresMarkdownIndexMetadataStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -53,7 +53,7 @@ impl SqliteMarkdownIndexMetadataStore {
             organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -71,17 +71,17 @@ impl SqliteMarkdownIndexMetadataStore {
 }
 
 #[async_trait]
-impl MarkdownIndexMetadataStore for SqliteMarkdownIndexMetadataStore {
+impl MarkdownIndexMetadataStore for PostgresMarkdownIndexMetadataStore {
     async fn create_or_prepare_markdown_index_metadata(
         &self,
         record: PrepareMarkdownIndexMetadataRecord,
     ) -> Result<PreparedMarkdownIndexMetadata, MarkdownIndexMetadataStoreError> {
-        sqlite_create_or_prepare_markdown_index_metadata(self, record).await
+        postgres_create_or_prepare_markdown_index_metadata(self, record).await
     }
 }
 
-async fn sqlite_create_or_prepare_markdown_index_metadata(
-    store: &SqliteMarkdownIndexMetadataStore,
+async fn postgres_create_or_prepare_markdown_index_metadata(
+    store: &PostgresMarkdownIndexMetadataStore,
     record: PrepareMarkdownIndexMetadataRecord,
 ) -> Result<PreparedMarkdownIndexMetadata, MarkdownIndexMetadataStoreError> {
     use sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::validate_markdown_index_document_identity;
@@ -91,7 +91,6 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     let organization_id = store.organization_id;
     let id_generator = &store.id_generator;
     let timestamp_dialect = store.timestamp_dialect;
-    let database_engine = store.database_engine;
     let quota_limits = store.quota_limits;
 
     validate_markdown_index_document_identity(&record.document, &record.source)?;
@@ -103,7 +102,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
         MarkdownIndexMetadataStoreError::invalid_request("organization_id exceeds i64 range")
     })?;
     let mut transaction = if quota_limits.is_some() {
-        begin_tenant_quota_transaction(pool, database_engine, tenant_id_i64, organization_id_i64)
+        begin_tenant_quota_transaction(pool, tenant_id_i64, organization_id_i64)
             .await
             .map_err(|error| MarkdownIndexMetadataStoreError::internal(error.to_string()))?
     } else {
@@ -182,8 +181,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     if let Some(limits) = quota_limits {
         enforce_tenant_quotas_after_write(
             &mut transaction,
-            database_engine,
-            tenant_id_i64,
+                        tenant_id_i64,
             organization_id_i64,
             limits,
         )

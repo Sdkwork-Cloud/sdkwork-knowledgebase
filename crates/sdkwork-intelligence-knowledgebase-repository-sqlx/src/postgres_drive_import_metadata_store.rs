@@ -21,7 +21,7 @@ use crate::quota_transaction::{
     begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
 };
 
-use crate::sqlite_knowledge_document_metadata_transaction::{
+use crate::postgres_knowledge_document_metadata_transaction::{
     bind_document_current_version_in_transaction, create_or_get_document_in_transaction,
     create_or_get_document_version_in_transaction, create_or_get_object_ref_in_transaction,
     create_or_get_source_in_transaction, document_from_row, document_version_from_row, from_i64,
@@ -30,7 +30,7 @@ use crate::sqlite_knowledge_document_metadata_transaction::{
 };
 
 #[derive(Debug, Clone)]
-pub struct SqliteDriveImportMetadataStore {
+pub struct PostgresDriveImportMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -40,7 +40,7 @@ pub struct SqliteDriveImportMetadataStore {
     quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
-impl SqliteDriveImportMetadataStore {
+impl PostgresDriveImportMetadataStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -62,7 +62,7 @@ impl SqliteDriveImportMetadataStore {
             organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
             quota_limits: None,
         }
     }
@@ -119,8 +119,7 @@ impl SqliteDriveImportMetadataStore {
         let mut transaction = if self.quota_limits.is_some() {
             begin_tenant_quota_transaction(
                 &self.pool,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
             )
             .await
@@ -235,8 +234,7 @@ impl SqliteDriveImportMetadataStore {
         if let Some(limits) = self.quota_limits {
             enforce_tenant_quotas_after_write(
                 &mut transaction,
-                self.database_engine,
-                tenant_id,
+                                tenant_id,
                 organization_id,
                 limits,
             )
@@ -276,7 +274,7 @@ fn map_quota_transaction_error(
 }
 
 #[async_trait]
-impl DriveImportMetadataStore for SqliteDriveImportMetadataStore {
+impl DriveImportMetadataStore for PostgresDriveImportMetadataStore {
     async fn validate_drive_import_idempotency(
         &self,
         record: CreateIngestionJobRecord,

@@ -23,14 +23,14 @@ const INITIAL_VERSION: i64 = 0;
 const RETIRED_CHAT_GROUP_CONTEXT_TYPE: &str = "chat_group";
 
 #[derive(Debug, Clone)]
-pub struct SqliteContextBindingStore {
+pub struct PostgresContextBindingStore {
     pool: AnyPool,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteContextBindingStore {
+impl PostgresContextBindingStore {
     pub fn new(pool: AnyPool, organization_id: u64) -> Self {
         Self {
             pool,
@@ -60,7 +60,7 @@ impl SqliteContextBindingStore {
 }
 
 #[async_trait]
-impl KnowledgeContextBindingStore for SqliteContextBindingStore {
+impl KnowledgeContextBindingStore for PostgresContextBindingStore {
     async fn create_binding(
         &self,
         tenant_id: u64,

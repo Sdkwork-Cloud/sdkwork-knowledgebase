@@ -31,7 +31,7 @@ pub struct TenantKnowledgebaseSummary {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeSpaceStore {
+pub struct PostgresKnowledgeSpaceStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -39,7 +39,7 @@ pub struct SqliteKnowledgeSpaceStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeSpaceStore {
+impl PostgresKnowledgeSpaceStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -245,7 +245,7 @@ impl SqliteKnowledgeSpaceStore {
 }
 
 #[async_trait]
-impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
+impl KnowledgeSpaceStore for PostgresKnowledgeSpaceStore {
     async fn create_space(
         &self,
         record: CreateKnowledgeSpaceRecord,
@@ -681,7 +681,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
     }
 }
 
-impl SqliteKnowledgeSpaceStore {
+impl PostgresKnowledgeSpaceStore {
     async fn transition_group_managed_space_status(
         &self,
         space_id: u64,
@@ -813,7 +813,7 @@ impl SqliteKnowledgeSpaceStore {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeOkfBundleFileStore {
+pub struct PostgresKnowledgeOkfBundleFileStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -821,7 +821,7 @@ pub struct SqliteKnowledgeOkfBundleFileStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeOkfBundleFileStore {
+impl PostgresKnowledgeOkfBundleFileStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -853,7 +853,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
 }
 
 #[async_trait]
-impl KnowledgeOkfBundleFileStore for SqliteKnowledgeOkfBundleFileStore {
+impl KnowledgeOkfBundleFileStore for PostgresKnowledgeOkfBundleFileStore {
     async fn create_file_entry(
         &self,
         record: CreateKnowledgeOkfBundleFileRecord,
@@ -869,7 +869,7 @@ impl KnowledgeOkfBundleFileStore for SqliteKnowledgeOkfBundleFileStore {
     }
 }
 
-impl SqliteKnowledgeOkfBundleFileStore {
+impl PostgresKnowledgeOkfBundleFileStore {
     async fn insert_file_entry(
         &self,
         record: CreateKnowledgeOkfBundleFileRecord,

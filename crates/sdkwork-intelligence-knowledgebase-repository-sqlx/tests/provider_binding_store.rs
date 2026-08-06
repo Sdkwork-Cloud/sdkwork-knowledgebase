@@ -1,5 +1,5 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, SqliteKnowledgeSpaceStore,
+    connect_knowledgebase_and_install_schema, is_postgres_database_url, PostgresKnowledgeSpaceStore,
     SqlxKnowledgeEngineProviderBindingStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
@@ -22,13 +22,16 @@ use sdkwork_knowledgebase_contract::provider_binding::{
 
 #[tokio::test]
 async fn provider_binding_lifecycle_is_scoped_versioned_and_atomically_switchable() {
-    let pool = provider_test_pool("provider-binding-lifecycle").await;
+let Some(pool) = provider_test_pool("provider-binding-lifecycle").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_001,
         organization_id: 7_001,
     };
     let space_store =
-        SqliteKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
+        PostgresKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
     let space = space_store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Provider Binding Space".to_string(),
@@ -140,13 +143,16 @@ async fn provider_binding_lifecycle_is_scoped_versioned_and_atomically_switchabl
 
 #[tokio::test]
 async fn provider_binding_rejects_stale_versions_and_cross_implementation_credentials() {
-    let pool = provider_test_pool("provider-binding-concurrency").await;
+let Some(pool) = provider_test_pool("provider-binding-concurrency").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_002,
         organization_id: 7_002,
     };
     let space_store =
-        SqliteKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
+        PostgresKnowledgeSpaceStore::new(pool.clone(), scope.tenant_id, scope.organization_id);
     let space = space_store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Provider Concurrency Space".to_string(),
@@ -242,7 +248,10 @@ async fn provider_binding_rejects_stale_versions_and_cross_implementation_creden
 
 #[tokio::test]
 async fn provider_credential_lifecycle_is_paginated_versioned_and_revocation_fails_closed() {
-    let pool = provider_test_pool("provider-credential-lifecycle").await;
+let Some(pool) = provider_test_pool("provider-credential-lifecycle").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_003,
         organization_id: 7_003,
@@ -431,8 +440,13 @@ async fn create_tested_binding(
         .expect("record successful test")
 }
 
-async fn provider_test_pool(_test_name: &str) -> sqlx::AnyPool {
-    connect_knowledgebase_and_install_schema("sqlite::memory:")
+async fn provider_test_pool(_test_name: &str) -> Option<sqlx::AnyPool> {
+    let database_url = std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))?;
+    let pool = connect_knowledgebase_and_install_schema(&database_url)
         .await
-        .expect("install provider binding schema")
+        .expect("install postgres test schema");
+    Some(pool)
 }

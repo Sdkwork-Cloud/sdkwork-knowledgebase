@@ -1,3 +1,4 @@
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_drive_contract::drive::events::{
@@ -14,10 +15,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn ingest_appends_outbox_event_and_worker_publishes_it() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let app = dev_auth::with_dev_app_auth_for_organization(
         runtime.build_full_app_router(),
         1,
@@ -182,7 +193,10 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn maintenance_tick_propagates_outbox_store_failure() {
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     runtime.pool().close().await;
 
     let error = run_maintenance_tick(
@@ -277,7 +291,11 @@ async fn response_body_string(response: axum::response::Response) -> String {
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
-async fn test_runtime() -> KnowledgebaseRuntime {
+async fn test_runtime() -> Option<KnowledgebaseRuntime> {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return None;
+    };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -298,18 +316,6 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         drive_root.to_string_lossy().as_ref(),
     );
 
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    // In-memory shared-cache SQLite: the server bootstrap rejects file-backed
-    // SQLite by architecture, and a plain `:memory:` pool would give every
-    // connection its own database. `cache=shared` keeps one process-local
-    // database across the pool while staying deterministic and ephemeral.
-    let database_url = "sqlite::memory:".to_string();
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
@@ -319,6 +325,7 @@ async fn test_runtime() -> KnowledgebaseRuntime {
     KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("connect runtime")
+        .into()
 }
 
 fn unique_suffix() -> u128 {

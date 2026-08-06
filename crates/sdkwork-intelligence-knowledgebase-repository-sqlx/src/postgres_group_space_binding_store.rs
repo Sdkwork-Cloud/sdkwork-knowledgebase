@@ -41,7 +41,7 @@ const MEMBERSHIP_PROJECTION_COMPLETED: &str = "completed";
 const MAX_GROUP_SCOPE_ID: u64 = i64::MAX as u64;
 
 #[derive(Debug, Clone)]
-pub struct SqliteGroupKnowledgeSpaceBindingStore {
+pub struct PostgresGroupKnowledgeSpaceBindingStore {
     pool: AnyPool,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
@@ -64,7 +64,7 @@ struct GroupKnowledgeSpaceStoreOperationContext<'a> {
     now: &'a str,
 }
 
-impl SqliteGroupKnowledgeSpaceBindingStore {
+impl PostgresGroupKnowledgeSpaceBindingStore {
     pub fn new(pool: AnyPool) -> Self {
         Self::with_id_generator(pool, default_knowledge_id_generator())
     }
@@ -482,7 +482,7 @@ impl SqliteGroupKnowledgeSpaceBindingStore {
 }
 
 #[async_trait]
-impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
+impl KnowledgeGroupSpaceBindingStore for PostgresGroupKnowledgeSpaceBindingStore {
     async fn reserve_group_space(
         &self,
         request: ReserveGroupKnowledgeSpaceRequest,

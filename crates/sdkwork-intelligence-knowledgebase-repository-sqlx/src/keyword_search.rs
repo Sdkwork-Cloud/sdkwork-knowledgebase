@@ -1,15 +1,9 @@
-use crate::db::is_postgres_database_url;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeywordSearchBackend {
-    SqliteFts5,
     PostgresTsVector,
 }
 
-pub fn keyword_search_backend_for_database_url(database_url: &str) -> KeywordSearchBackend {
-    if is_postgres_database_url(database_url) {
-        KeywordSearchBackend::PostgresTsVector
-    } else {
-        KeywordSearchBackend::SqliteFts5
-    }
+pub fn keyword_search_backend_for_database_url(_database_url: &str) -> KeywordSearchBackend {
+    // 服务端权威持久化仅支持 PostgreSQL（DATABASE_SPEC：authoritative-server）
+    KeywordSearchBackend::PostgresTsVector
 }

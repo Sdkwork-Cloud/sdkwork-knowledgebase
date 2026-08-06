@@ -8,7 +8,6 @@ use uuid::Uuid;
 
 use crate::db::sql_timestamp::{push_sql_timestamp_bind, SqlTimestampDialect};
 use crate::id::{next_i64_id, KnowledgeIdGenerator};
-use crate::keyword_search::KeywordSearchBackend;
 
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
@@ -31,7 +30,6 @@ pub(crate) struct ReplaceVersionChunksContext<'a> {
     pub tenant_id: u64,
     pub organization_id: u64,
     pub id_generator: &'a Arc<dyn KnowledgeIdGenerator>,
-    pub keyword_backend: KeywordSearchBackend,
     pub timestamp_dialect: SqlTimestampDialect,
     pub document_version_id: u64,
 }
@@ -45,30 +43,7 @@ pub(crate) async fn replace_version_chunks_in_transaction(
     let organization_id_i64 = chunk_to_i64("organization_id", context.organization_id)?;
     let version_id = chunk_to_i64("document_version_id", context.document_version_id)?;
     let now = chunk_now()?;
-    let use_sqlite_fts = context.keyword_backend == KeywordSearchBackend::SqliteFts5;
 
-    if use_sqlite_fts {
-        sqlx::query(
-            r#"
-            DELETE FROM kb_chunk_fts
-            WHERE tenant_id = $1
-              AND organization_id = $2
-              AND chunk_id IN (
-                SELECT id
-                FROM kb_chunk
-                WHERE tenant_id = $1
-                  AND organization_id = $2
-                  AND document_version_id = $3
-            )
-            "#,
-        )
-        .bind(tenant_id_i64)
-        .bind(organization_id_i64)
-        .bind(version_id)
-        .execute(&mut **transaction)
-        .await
-        .map_err(chunk_internal_error)?;
-    }
 
     sqlx::query(
         r#"
@@ -110,79 +85,21 @@ pub(crate) async fn replace_version_chunks_in_transaction(
     }
 
     for batch in prepared.chunks(CHUNK_INSERT_BATCH_SIZE) {
-        if use_sqlite_fts {
-            bulk_insert_kb_chunks_sqlite(
-                transaction,
-                tenant_id_i64,
-                organization_id_i64,
-                version_id,
-                &now,
-                batch,
-            )
-            .await?;
-            bulk_insert_kb_chunk_fts(transaction, tenant_id_i64, organization_id_i64, batch)
-                .await?;
-        } else {
-            bulk_insert_kb_chunks_postgres(
-                transaction,
-                tenant_id_i64,
-                organization_id_i64,
-                version_id,
-                context.timestamp_dialect,
-                &now,
-                batch,
-            )
-            .await?;
-        }
+        bulk_insert_kb_chunks_postgres(
+            transaction,
+            tenant_id_i64,
+            organization_id_i64,
+            version_id,
+            context.timestamp_dialect,
+            &now,
+            batch,
+        )
+        .await?;
     }
 
     Ok(chunks.len())
 }
 
-async fn bulk_insert_kb_chunks_sqlite(
-    transaction: &mut Transaction<'_, Any>,
-    tenant_id: i64,
-    organization_id: i64,
-    version_id: i64,
-    now: &str,
-    batch: &[PreparedChunkRow],
-) -> Result<(), KnowledgeChunkStoreError> {
-    let mut builder = QueryBuilder::new(
-        r#"
-        INSERT INTO kb_chunk (
-            id, uuid, tenant_id, organization_id, space_id, collection_id, document_id,
-            document_version_id, chunk_index, content_text, content_hash,
-            token_count, locator, status, created_at, updated_at, version
-        )
-        "#,
-    );
-    builder.push_values(batch, |mut row, chunk| {
-        row.push_bind(chunk.id)
-            .push_bind(chunk.uuid.as_str())
-            .push_bind(tenant_id)
-            .push_bind(organization_id)
-            .push_bind(chunk.space_id)
-            .push_bind(chunk.collection_id)
-            .push_bind(chunk.document_id)
-            .push_bind(version_id)
-            .push_bind(chunk.chunk_index)
-            .push_bind(chunk.content_text.as_str())
-            .push_bind(chunk.content_hash.as_str())
-            .push_bind(chunk.token_count)
-            .push_bind(chunk.locator.as_deref())
-            .push_bind(ACTIVE_STATUS)
-            .push_bind(now)
-            .push_bind(now)
-            .push_bind(INITIAL_VERSION);
-    });
-
-    builder
-        .build()
-        .execute(&mut **transaction)
-        .await
-        .map_err(chunk_internal_error)?;
-    Ok(())
-}
 
 async fn bulk_insert_kb_chunks_postgres(
     transaction: &mut Transaction<'_, Any>,
@@ -234,42 +151,12 @@ async fn bulk_insert_kb_chunks_postgres(
     Ok(())
 }
 
-async fn bulk_insert_kb_chunk_fts(
-    transaction: &mut Transaction<'_, Any>,
-    tenant_id: i64,
-    organization_id: i64,
-    batch: &[PreparedChunkRow],
-) -> Result<(), KnowledgeChunkStoreError> {
-    let mut builder = QueryBuilder::new(
-        r#"
-        INSERT INTO kb_chunk_fts (
-            content_text, chunk_id, tenant_id, organization_id, space_id, document_id
-        )
-        "#,
-    );
-    builder.push_values(batch, |mut row, chunk| {
-        row.push_bind(chunk.content_text.as_str())
-            .push_bind(chunk.id)
-            .push_bind(tenant_id)
-            .push_bind(organization_id)
-            .push_bind(chunk.space_id)
-            .push_bind(chunk.document_id);
-    });
-
-    builder
-        .build()
-        .execute(&mut **transaction)
-        .await
-        .map_err(chunk_internal_error)?;
-    Ok(())
-}
 
 pub async fn replace_version_chunks_with_pool(
     pool: &AnyPool,
     tenant_id: u64,
     organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
-    keyword_backend: KeywordSearchBackend,
     timestamp_dialect: SqlTimestampDialect,
     document_version_id: u64,
     chunks: Vec<CreateKnowledgeChunkRecord>,
@@ -284,7 +171,6 @@ pub async fn replace_version_chunks_with_pool(
             tenant_id,
             organization_id,
             id_generator,
-            keyword_backend,
             timestamp_dialect,
             document_version_id,
         },
@@ -305,7 +191,7 @@ fn chunk_now() -> Result<String, KnowledgeChunkStoreError> {
 
 fn chunk_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeChunkStoreError> {
     i64::try_from(value).map_err(|_| {
-        KnowledgeChunkStoreError::InvalidRecord(format!("{field} exceeds sqlite integer range"))
+        KnowledgeChunkStoreError::InvalidRecord(format!("{field} exceeds i64 integer range"))
     })
 }
 

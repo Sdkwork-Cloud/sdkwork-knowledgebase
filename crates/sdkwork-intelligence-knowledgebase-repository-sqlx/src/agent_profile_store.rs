@@ -37,7 +37,7 @@ fn binding_json_returning_columns() -> &'static str {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeAgentProfileStore {
+pub struct PostgresKnowledgeAgentProfileStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
@@ -45,7 +45,7 @@ pub struct SqliteKnowledgeAgentProfileStore {
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeAgentProfileStore {
+impl PostgresKnowledgeAgentProfileStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
@@ -77,7 +77,7 @@ impl SqliteKnowledgeAgentProfileStore {
 }
 
 #[async_trait]
-impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
+impl KnowledgeAgentProfileStore for PostgresKnowledgeAgentProfileStore {
     async fn create_profile(
         &self,
         request: KnowledgeAgentProfileRequest,
@@ -605,7 +605,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
     }
 }
 
-impl SqliteKnowledgeAgentProfileStore {
+impl PostgresKnowledgeAgentProfileStore {
     async fn select_profile(
         &self,
         profile_id: u64,

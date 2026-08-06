@@ -4,7 +4,8 @@ use axum::{
     response::Response,
 };
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    SqliteGroupKnowledgeSpaceBindingStore, SqliteKnowledgeSpaceStore,
+    is_postgres_database_url,
+    PostgresGroupKnowledgeSpaceBindingStore, PostgresKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
@@ -50,6 +51,13 @@ impl Drop for EnvironmentGuard {
     }
 }
 
+fn optional_postgres_database_url() -> Option<String> {
+    std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))
+}
+
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn group_managed_spaces_do_not_fall_back_to_direct_drive_owner_permissions() {
@@ -57,7 +65,10 @@ async fn group_managed_spaces_do_not_fall_back_to_direct_drive_owner_permissions
         "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID",
         &ORGANIZATION_ID.to_string(),
     );
-    let runtime = test_runtime().await;
+let Some(runtime) = test_runtime().await else {
+    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     assert_eq!(runtime.organization_id(), ORGANIZATION_ID);
     let direct_owner = app_context(DIRECT_DRIVE_OWNER_ID);
     let space_id = create_space(&runtime, direct_owner.clone()).await;
@@ -352,13 +363,13 @@ async fn assert_persisted_space(runtime: &KnowledgebaseRuntime, space_id: u64) {
     .expect("query generic visibility for created knowledge space");
     assert_eq!(generic_visible, 1);
 
-    let store = SqliteKnowledgeSpaceStore::new(runtime.pool().clone(), TENANT_ID, ORGANIZATION_ID);
+    let store = PostgresKnowledgeSpaceStore::new(runtime.pool().clone(), TENANT_ID, ORGANIZATION_ID);
     store
         .get_space(space_id)
         .await
         .expect("newly created ordinary space must be visible through the repository store");
 
-    let binding_store = SqliteGroupKnowledgeSpaceBindingStore::new(runtime.pool().clone());
+    let binding_store = PostgresGroupKnowledgeSpaceBindingStore::new(runtime.pool().clone());
     assert!(binding_store
         .find_group_space_for_space_in_tenant(TENANT_ID, space_id)
         .await
@@ -412,7 +423,11 @@ async fn send(
         .expect("route response")
 }
 
-async fn test_runtime() -> KnowledgebaseRuntime {
+async fn test_runtime() -> Option<KnowledgebaseRuntime> {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return None;
+    };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -431,14 +446,8 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
         drive_root.to_string_lossy().as_ref(),
     );
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    KnowledgebaseRuntime::connect("sqlite::memory:", TENANT_ID)
+    KnowledgebaseRuntime::connect(&database_url, TENANT_ID)
         .await
         .expect("runtime")
+        .into()
 }

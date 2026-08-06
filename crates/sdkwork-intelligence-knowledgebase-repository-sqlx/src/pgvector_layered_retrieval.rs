@@ -9,17 +9,17 @@ use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalMethod;
 use std::sync::Arc;
 
 use crate::postgres_pgvector_retrieval::PgVectorKnowledgeRetrievalBackend;
-use crate::retrieval_store::{merge_hybrid_hits, SqliteKnowledgeChunkRetrievalStore};
+use crate::retrieval_store::{merge_hybrid_hits, PostgresKnowledgeChunkRetrievalStore};
 
 #[derive(Debug, Clone)]
 pub struct PgVectorLayeredRetrievalBackend {
-    keyword: Arc<SqliteKnowledgeChunkRetrievalStore>,
+    keyword: Arc<PostgresKnowledgeChunkRetrievalStore>,
     pgvector: Arc<PgVectorKnowledgeRetrievalBackend>,
 }
 
 impl PgVectorLayeredRetrievalBackend {
     pub fn new(
-        keyword: Arc<SqliteKnowledgeChunkRetrievalStore>,
+        keyword: Arc<PostgresKnowledgeChunkRetrievalStore>,
         pgvector: Arc<PgVectorKnowledgeRetrievalBackend>,
     ) -> Self {
         Self { keyword, pgvector }

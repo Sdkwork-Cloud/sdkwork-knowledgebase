@@ -14,22 +14,23 @@ use crate::keyword_search::KeywordSearchBackend;
 const MAX_CHUNKS_PER_DOCUMENT_LOAD: i64 = 2000;
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeChunkStore {
+pub struct PostgresKnowledgeChunkStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    #[allow(dead_code)] // 保留 keyword backend 选择机制（当前仅 PostgresTsVector）
     keyword_backend: KeywordSearchBackend,
     database_engine: DatabaseEngine,
 }
 
-impl SqliteKnowledgeChunkStore {
+impl PostgresKnowledgeChunkStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             default_knowledge_id_generator(),
         )
     }
@@ -44,7 +45,7 @@ impl SqliteKnowledgeChunkStore {
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             id_generator,
         )
     }
@@ -62,7 +63,7 @@ impl SqliteKnowledgeChunkStore {
             organization_id,
             id_generator,
             keyword_backend,
-            database_engine: DatabaseEngine::Sqlite,
+            database_engine: DatabaseEngine::Postgres,
         }
     }
 
@@ -75,7 +76,7 @@ impl SqliteKnowledgeChunkStore {
 }
 
 #[async_trait]
-impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
+impl KnowledgeChunkStore for PostgresKnowledgeChunkStore {
     async fn replace_version_chunks(
         &self,
         document_version_id: u64,
@@ -86,7 +87,6 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             self.tenant_id,
             self.organization_id,
             &self.id_generator,
-            self.keyword_backend,
             crate::db::sql_timestamp::SqlTimestampDialect::from_database_engine(
                 self.database_engine,
             ),
@@ -214,6 +214,6 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
 
 fn chunk_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeChunkStoreError> {
     i64::try_from(value).map_err(|_| {
-        KnowledgeChunkStoreError::InvalidRecord(format!("{field} exceeds sqlite integer range"))
+        KnowledgeChunkStoreError::InvalidRecord(format!("{field} exceeds i64 integer range"))
     })
 }

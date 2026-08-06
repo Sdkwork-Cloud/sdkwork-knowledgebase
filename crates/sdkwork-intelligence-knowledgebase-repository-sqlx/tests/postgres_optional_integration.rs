@@ -1,10 +1,10 @@
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_postgres_and_install_schema, is_postgres_database_url, knowledgebase_health_check,
-    KnowledgeAuditEventRecord, SqliteIngestionJobStore, SqliteKnowledgeAuditEventStore,
-    SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeDocumentStore,
-    SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
-    SqliteKnowledgeSpaceStore,
+    KnowledgeAuditEventRecord, PostgresIngestionJobStore, PostgresKnowledgeAuditEventStore,
+    PostgresKnowledgeBrowserProjectionStore, PostgresKnowledgeDocumentStore,
+    PostgresKnowledgeDocumentVersionStore, PostgresKnowledgeDriveObjectRefStore,
+    PostgresKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_projection_store::KnowledgeBrowserProjectionStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
@@ -71,7 +71,7 @@ async fn postgres_ingest_quota_advisory_lock_is_atomic_when_database_url_configu
         ..KnowledgebaseTenantQuotaLimits::default()
     };
     let store = Arc::new(
-        SqliteIngestionJobStore::new(pool.clone(), tenant_id, 0)
+        PostgresIngestionJobStore::new(pool.clone(), tenant_id, 0)
             .with_database_engine(DatabaseEngine::Postgres)
             .with_quota_limits(limits),
     );
@@ -123,7 +123,7 @@ async fn postgres_audit_event_table_accepts_append_when_database_url_configured(
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
         .expect("connect postgres knowledgebase schema");
-    let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
+    let store = PostgresKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
     let request_id = format!(
         "req-postgres-audit-{}",
         SystemTime::now()
@@ -168,14 +168,14 @@ async fn postgres_agent_profile_create_when_database_url_configured() {
         return;
     };
 
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeAgentProfileStore;
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::PostgresKnowledgeAgentProfileStore;
     use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_store::KnowledgeAgentProfileStore;
     use sdkwork_knowledgebase_contract::rag::{KnowledgeAgentProfileRequest, KnowledgeAgentStatus};
 
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
         .expect("connect postgres knowledgebase schema");
-    let store = SqliteKnowledgeAgentProfileStore::new(pool, 100_001, 0);
+    let store = PostgresKnowledgeAgentProfileStore::new(pool, 100_001, 0);
     let created = store
         .create_profile(KnowledgeAgentProfileRequest {
             tenant_id: 100_001,
@@ -216,7 +216,7 @@ async fn postgres_create_space_when_database_url_configured() {
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
         .expect("connect postgres knowledgebase schema");
-    let store = SqliteKnowledgeSpaceStore::new(pool, 100_001, 0);
+    let store = PostgresKnowledgeSpaceStore::new(pool, 100_001, 0);
     let created = store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "postgres integration space".to_string(),
@@ -242,10 +242,10 @@ async fn postgres_browser_projection_batches_document_status_when_database_url_c
         .await
         .expect("connect postgres knowledgebase schema");
     let tenant_id = 100_001;
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
-    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id, 0);
+    let documents = PostgresKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
+    let object_refs = PostgresKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let versions = PostgresKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
+    let projections = PostgresKnowledgeBrowserProjectionStore::new(pool, tenant_id, 0);
 
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
@@ -315,7 +315,7 @@ async fn postgres_rls_hides_rows_without_session_scope_when_database_url_configu
         .expect("connect postgres knowledgebase schema");
 
     // Write one row through a session bound to tenant 1 / organization 1.
-    let store = SqliteKnowledgeSpaceStore::new(pool.clone(), 1, 1);
+    let store = PostgresKnowledgeSpaceStore::new(pool.clone(), 1, 1);
     let created = store
         .create_space(CreateKnowledgeSpaceRecord {
             name: "RLS fail-closed fixture".to_string(),

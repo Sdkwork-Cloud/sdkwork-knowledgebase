@@ -26,30 +26,24 @@ const INITIAL_VERSION: i64 = 0;
 /// Maximum hits returned per retrieval trace (bounded to avoid OOM).
 const MAX_RETRIEVAL_TRACE_HITS: i64 = 256;
 
-#[derive(Debug, Clone, Copy)]
-struct RetrievalSqlScope {
-    tenant_id: i64,
-    organization_id: i64,
-    space_id: i64,
-}
-
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeChunkRetrievalStore {
+pub struct PostgresKnowledgeChunkRetrievalStore {
     pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    #[allow(dead_code)] // 保留 keyword backend 选择机制（当前仅 PostgresTsVector）
     keyword_backend: KeywordSearchBackend,
     timestamp_dialect: SqlTimestampDialect,
 }
 
-impl SqliteKnowledgeChunkRetrievalStore {
+impl PostgresKnowledgeChunkRetrievalStore {
     pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             default_knowledge_id_generator(),
         )
     }
@@ -64,7 +58,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             pool,
             tenant_id,
             organization_id,
-            KeywordSearchBackend::SqliteFts5,
+            KeywordSearchBackend::PostgresTsVector,
             id_generator,
         )
     }
@@ -92,7 +86,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
     }
 }
 
-impl SqliteKnowledgeChunkRetrievalStore {
+impl PostgresKnowledgeChunkRetrievalStore {
     pub async fn list_trace_summaries(
         &self,
         limit: u32,
@@ -175,7 +169,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
 }
 
 #[async_trait]
-impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
+impl KnowledgeRetrievalBackend for PostgresKnowledgeChunkRetrievalStore {
     async fn search_chunks(
         &self,
         request: KnowledgeChunkSearchRequest,
@@ -227,7 +221,7 @@ enum TermMatchOperator {
     All,
 }
 
-impl SqliteKnowledgeChunkRetrievalStore {
+impl PostgresKnowledgeChunkRetrievalStore {
     async fn search_chunks_with_term_operator(
         &self,
         request: KnowledgeChunkSearchRequest,
@@ -248,9 +242,8 @@ impl SqliteKnowledgeChunkRetrievalStore {
             return Ok(vec![]);
         }
 
-        let keyword_backend = self.keyword_backend;
         let fts_match =
-            build_keyword_match_expression(&query_terms, term_operator, keyword_backend);
+            build_keyword_match_expression(&query_terms, term_operator);
 
         let mut query = QueryBuilder::new(
             r#"
@@ -267,15 +260,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 "kb://documents/" || c.document_id AS source_uri,
             "#,
         );
-        push_keyword_score_expression(
-            &mut query,
-            &query_terms,
-            tenant_id,
-            organization_id,
-            space_id,
-            &fts_match,
-            keyword_backend,
-        );
+        push_keyword_score_expression(&mut query, &query_terms, &fts_match);
         query.push(
             r#"
                 AS score
@@ -312,18 +297,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             &request.binding,
         )?;
         query.push(" AND (");
-        push_keyword_or_title_filter(
-            &mut query,
-            &query_terms,
-            term_operator,
-            RetrievalSqlScope {
-                tenant_id,
-                organization_id,
-                space_id,
-            },
-            &fts_match,
-            keyword_backend,
-        );
+        push_keyword_or_title_filter(&mut query, &query_terms, term_operator, &fts_match);
         query.push(") ORDER BY score DESC, c.id ASC LIMIT ");
         query.push_bind(top_k);
 
@@ -359,9 +333,8 @@ impl SqliteKnowledgeChunkRetrievalStore {
             return Ok(vec![]);
         }
 
-        let keyword_backend = self.keyword_backend;
         let fts_match =
-            build_keyword_match_expression(&query_terms, term_operator, keyword_backend);
+            build_keyword_match_expression(&query_terms, term_operator);
 
         let mut query = QueryBuilder::new(
             r#"
@@ -378,15 +351,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 "kb://documents/" || c.document_id AS source_uri,
             "#,
         );
-        push_keyword_score_expression(
-            &mut query,
-            &query_terms,
-            tenant_id,
-            organization_id,
-            space_id,
-            &fts_match,
-            keyword_backend,
-        );
+        push_keyword_score_expression(&mut query, &query_terms, &fts_match);
         query.push(
             r#"
                 AS score
@@ -433,18 +398,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             &request.binding,
         )?;
         query.push(" AND (");
-        push_keyword_or_title_filter(
-            &mut query,
-            &query_terms,
-            term_operator,
-            RetrievalSqlScope {
-                tenant_id,
-                organization_id,
-                space_id,
-            },
-            &fts_match,
-            keyword_backend,
-        );
+        push_keyword_or_title_filter(&mut query, &query_terms, term_operator, &fts_match);
         query.push(") ORDER BY score DESC, c.id ASC LIMIT ");
         query.push_bind(top_k);
 
@@ -583,22 +537,10 @@ impl SqliteKnowledgeChunkRetrievalStore {
             &request.binding,
         )?;
         if !query_terms.is_empty() {
-            let keyword_backend = self.keyword_backend;
             let fts_match =
-                build_keyword_match_expression(&query_terms, term_operator, keyword_backend);
+                build_keyword_match_expression(&query_terms, term_operator);
             query.push(" AND (");
-            push_keyword_or_title_filter(
-                &mut query,
-                &query_terms,
-                term_operator,
-                RetrievalSqlScope {
-                    tenant_id,
-                    organization_id,
-                    space_id,
-                },
-                &fts_match,
-                keyword_backend,
-            );
+            push_keyword_or_title_filter(&mut query, &query_terms, term_operator, &fts_match);
             query.push(")");
         }
         query.push(" ORDER BY c.id ASC LIMIT ");
@@ -632,7 +574,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
 }
 
 #[async_trait]
-impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
+impl KnowledgeRetrievalTraceStore for PostgresKnowledgeChunkRetrievalStore {
     async fn create_trace(
         &self,
         record: CreateKnowledgeRetrievalTraceRecord,
@@ -1041,32 +983,11 @@ fn cosine_similarity_f32(left: &[f32], right: &[f32]) -> f64 {
 fn push_keyword_score_expression(
     query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
-    tenant_id: i64,
-    organization_id: i64,
-    space_id: i64,
     keyword_match: &str,
-    backend: KeywordSearchBackend,
 ) {
-    match backend {
-        KeywordSearchBackend::SqliteFts5 => {
-            query.push(
-                "COALESCE((SELECT -bm25(kb_chunk_fts) FROM kb_chunk_fts WHERE chunk_id = c.id AND kb_chunk_fts MATCH ",
-            );
-            query.push_bind(keyword_match.to_string());
-            query.push(" AND tenant_id = ");
-            query.push_bind(tenant_id);
-            query.push(" AND organization_id = ");
-            query.push_bind(organization_id);
-            query.push(" AND space_id = ");
-            query.push_bind(space_id);
-            query.push(" LIMIT 1), 0.0)");
-        }
-        KeywordSearchBackend::PostgresTsVector => {
-            query.push("COALESCE(ts_rank_cd(c.search_vector, to_tsquery('simple', ");
-            query.push_bind(keyword_match.to_string());
-            query.push(")), 0.0)");
-        }
-    }
+    query.push("COALESCE(ts_rank_cd(c.search_vector, to_tsquery('simple', ");
+    query.push_bind(keyword_match.to_string());
+    query.push(")), 0.0)");
     for term in terms {
         query.push(" + CASE WHEN LOWER(d.title) LIKE ");
         query.push_bind(format!("%{term}%"));
@@ -1078,71 +999,11 @@ fn push_keyword_or_title_filter(
     query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
     term_operator: TermMatchOperator,
-    scope: RetrievalSqlScope,
     keyword_match: &str,
-    backend: KeywordSearchBackend,
 ) {
-    match backend {
-        KeywordSearchBackend::SqliteFts5 => push_sqlite_fts_or_title_filter(
-            query,
-            terms,
-            term_operator,
-            scope.tenant_id,
-            scope.organization_id,
-            scope.space_id,
-            keyword_match,
-        ),
-        KeywordSearchBackend::PostgresTsVector => {
-            push_postgres_ts_or_title_filter(query, terms, term_operator, keyword_match)
-        }
-    }
+    push_postgres_ts_or_title_filter(query, terms, term_operator, keyword_match)
 }
 
-fn push_sqlite_fts_or_title_filter(
-    query: &mut QueryBuilder<sqlx::Any>,
-    terms: &[String],
-    term_operator: TermMatchOperator,
-    tenant_id: i64,
-    organization_id: i64,
-    space_id: i64,
-    fts_match: &str,
-) {
-    match term_operator {
-        TermMatchOperator::Any => {
-            query.push("c.id IN (SELECT chunk_id FROM kb_chunk_fts WHERE kb_chunk_fts MATCH ");
-            query.push_bind(fts_match.to_string());
-            query.push(" AND tenant_id = ");
-            query.push_bind(tenant_id);
-            query.push(" AND organization_id = ");
-            query.push_bind(organization_id);
-            query.push(" AND space_id = ");
-            query.push_bind(space_id);
-            query.push(")");
-            for term in terms {
-                query.push(" OR LOWER(d.title) LIKE ");
-                query.push_bind(format!("%{term}%"));
-            }
-        }
-        TermMatchOperator::All => {
-            for (index, term) in terms.iter().enumerate() {
-                if index > 0 {
-                    query.push(" AND ");
-                }
-                query.push("(c.id IN (SELECT chunk_id FROM kb_chunk_fts WHERE kb_chunk_fts MATCH ");
-                query.push_bind(escape_fts5_term(term));
-                query.push(" AND tenant_id = ");
-                query.push_bind(tenant_id);
-                query.push(" AND organization_id = ");
-                query.push_bind(organization_id);
-                query.push(" AND space_id = ");
-                query.push_bind(space_id);
-                query.push(") OR LOWER(d.title) LIKE ");
-                query.push_bind(format!("%{term}%"));
-                query.push(")");
-            }
-        }
-    }
-}
 
 fn push_postgres_ts_or_title_filter(
     query: &mut QueryBuilder<sqlx::Any>,
@@ -1181,21 +1042,10 @@ fn push_postgres_ts_or_title_filter(
 fn build_keyword_match_expression(
     terms: &[String],
     term_operator: TermMatchOperator,
-    backend: KeywordSearchBackend,
 ) -> String {
-    match backend {
-        KeywordSearchBackend::SqliteFts5 => build_fts_match_expression(terms, term_operator),
-        KeywordSearchBackend::PostgresTsVector => build_postgres_tsquery(terms, term_operator),
-    }
+    build_postgres_tsquery(terms, term_operator)
 }
 
-fn build_fts_match_expression(terms: &[String], term_operator: TermMatchOperator) -> String {
-    let escaped_terms: Vec<String> = terms.iter().map(|term| escape_fts5_term(term)).collect();
-    match term_operator {
-        TermMatchOperator::Any => escaped_terms.join(" OR "),
-        TermMatchOperator::All => escaped_terms.join(" AND "),
-    }
-}
 
 fn build_postgres_tsquery(terms: &[String], term_operator: TermMatchOperator) -> String {
     let escaped_terms: Vec<String> = terms.iter().map(|term| escape_tsquery_term(term)).collect();
@@ -1209,10 +1059,6 @@ fn build_postgres_tsquery(terms: &[String], term_operator: TermMatchOperator) ->
     escaped_terms.join(separator)
 }
 
-fn escape_fts5_term(term: &str) -> String {
-    let escaped = term.replace('"', "\"\"");
-    format!("\"{escaped}\"")
-}
 
 fn escape_tsquery_term(term: &str) -> String {
     let sanitized: String = term
@@ -1459,18 +1305,6 @@ fn trace_id_error(
 mod fts_tests {
     use super::*;
 
-    #[test]
-    fn fts_match_expression_joins_terms_for_any_and_all() {
-        let terms = vec!["alpha".to_string(), "beta".to_string()];
-        assert_eq!(
-            build_fts_match_expression(&terms, TermMatchOperator::Any),
-            "\"alpha\" OR \"beta\""
-        );
-        assert_eq!(
-            build_fts_match_expression(&terms, TermMatchOperator::All),
-            "\"alpha\" AND \"beta\""
-        );
-    }
 
     #[test]
     fn postgres_tsquery_joins_terms_for_any_and_all() {
@@ -1485,8 +1319,4 @@ mod fts_tests {
         );
     }
 
-    #[test]
-    fn fts_term_escapes_quotes() {
-        assert_eq!(escape_fts5_term(r#"a"b"#), r#""a""b""#);
-    }
 }

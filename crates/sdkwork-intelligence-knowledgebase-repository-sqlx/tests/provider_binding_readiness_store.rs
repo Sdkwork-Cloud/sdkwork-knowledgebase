@@ -1,5 +1,5 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema,
+    connect_knowledgebase_and_install_schema, is_postgres_database_url,
     SqlxKnowledgeEngineProviderBindingReadinessStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_readiness_store::{
@@ -16,7 +16,10 @@ const NOW: &str = "2026-07-20T00:00:00Z";
 
 #[tokio::test]
 async fn readiness_report_is_scoped_bounded_and_never_infers_from_sources() {
-    let pool = readiness_test_pool("provider-binding-readiness-scope").await;
+let Some(pool) = readiness_test_pool("provider-binding-readiness-scope").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
 
     insert_space(&pool, TENANT_ID, ORGANIZATION_ID, 900, "external", 1).await;
     insert_source_with_provider(&pool, TENANT_ID, 900, "engine.knowledge.external.dify").await;
@@ -127,7 +130,10 @@ async fn readiness_report_is_scoped_bounded_and_never_infers_from_sources() {
 
 #[tokio::test]
 async fn readiness_report_rejects_invalid_page_and_cursor_inputs() {
-    let pool = readiness_test_pool("provider-binding-readiness-input").await;
+let Some(pool) = readiness_test_pool("provider-binding-readiness-input").await else {
+    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+    return;
+};
     let store = SqlxKnowledgeEngineProviderBindingReadinessStore::new(pool);
     let scope = KnowledgeEngineProviderScope {
         tenant_id: TENANT_ID as u64,
@@ -254,8 +260,13 @@ async fn insert_source_with_provider(
     .expect("insert historic source fixture");
 }
 
-async fn readiness_test_pool(_test_name: &str) -> AnyPool {
-    connect_knowledgebase_and_install_schema("sqlite::memory:")
+async fn readiness_test_pool(_test_name: &str) -> Option<AnyPool> {
+    let database_url = std::env::var("SDKWORK_DATABASE_URL")
+        .or_else(|_| std::env::var("DATABASE_URL"))
+        .ok()
+        .filter(|url| is_postgres_database_url(url))?;
+    let pool = connect_knowledgebase_and_install_schema(&database_url)
         .await
-        .expect("install Provider Binding readiness schema")
+        .expect("install postgres test schema");
+    Some(pool)
 }
