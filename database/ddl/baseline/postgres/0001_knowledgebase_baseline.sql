@@ -1783,58 +1783,7 @@ END $$;
 -- aggregate. The lifecycle skips mutable baselines once kb_space exists, so these tables must
 -- also be created by an ordered runtime migration before later corrections alter them.
 
-CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding (
-    id BIGINT NOT NULL,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    conversation_id VARCHAR(256) NOT NULL,
-    space_id BIGINT,
-    space_uuid VARCHAR(64),
-    group_name VARCHAR(256) NOT NULL,
-    lifecycle_state VARCHAR(32) NOT NULL,
-    acl_projection_state VARCHAR(32) NOT NULL DEFAULT 'pending',
-    provisioning_idempotency_key_sha256_hex VARCHAR(64) NOT NULL,
-    provisioning_lease_token VARCHAR(64),
-    provisioning_lease_until TIMESTAMP,
-    membership_epoch BIGINT NOT NULL DEFAULT 0,
-    upstream_link_generation BIGINT NOT NULL DEFAULT 0,
-    archive_source_event_id VARCHAR(512),
-    archive_payload_sha256_hex VARCHAR(64),
-    archive_lease_token VARCHAR(64),
-    archive_lease_until TIMESTAMP,
-    archive_acl_cursor VARCHAR(2048),
-    archive_acl_pages_processed BIGINT NOT NULL DEFAULT 0,
-    archive_acl_cleanup_completed_at TIMESTAMP,
-    last_source_event_id VARCHAR(512),
-    last_error_code VARCHAR(64),
-    last_error_at TIMESTAMP,
-    archived_at TIMESTAMP,
-    archived_by VARCHAR(256),
-    deleted_at TIMESTAMP,
-    deleted_by VARCHAR(256),
-    created_by VARCHAR(256) NOT NULL,
-    updated_by VARCHAR(256) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    CONSTRAINT uk_kb_group_knowledge_space_binding_scope_id
-        UNIQUE (tenant_id, organization_id, id),
-    CONSTRAINT ck_kb_group_knowledge_space_lifecycle
-        CHECK (lifecycle_state IN ('provisioning', 'active', 'failed', 'archiving', 'archived', 'deleted')),
-    CONSTRAINT ck_kb_group_knowledge_space_acl_projection
-        CHECK (acl_projection_state IN ('pending', 'active', 'failed')),
-    CONSTRAINT ck_kb_group_knowledge_space_active_acl_projection
-        CHECK (lifecycle_state <> 'active' OR acl_projection_state = 'active'),
-    CONSTRAINT ck_kb_group_knowledge_space_membership_epoch
-        CHECK (membership_epoch >= 0),
-    CONSTRAINT ck_kb_group_knowledge_space_binding_tenant
-        CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_group_knowledge_space_binding_organization
-        CHECK (organization_id >= 0),
-    FOREIGN KEY (space_id) REFERENCES kb_space(id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_group_knowledge_space_binding_uuid
     ON kb_group_knowledge_space_binding (tenant_id, uuid);
@@ -1850,46 +1799,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_group_knowledge_space_binding_state
     ON kb_group_knowledge_space_binding
        (tenant_id, organization_id, lifecycle_state, updated_at, id);
 
-CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_member (
-    id BIGINT NOT NULL,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    binding_id BIGINT NOT NULL,
-    principal_kind VARCHAR(32) NOT NULL,
-    actor_id VARCHAR(256) NOT NULL,
-    member_role VARCHAR(32) NOT NULL,
-    access_level VARCHAR(32),
-    membership_epoch BIGINT NOT NULL,
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    CONSTRAINT ck_kb_group_knowledge_space_member_role
-        CHECK (member_role IN ('owner', 'admin', 'member', 'guest')),
-    CONSTRAINT ck_kb_group_knowledge_space_member_principal
-        CHECK (principal_kind = 'user'),
-    CONSTRAINT ck_kb_group_knowledge_space_member_access
-        CHECK (access_level IS NULL OR access_level IN ('reader', 'writer', 'owner')),
-    CONSTRAINT ck_kb_group_knowledge_space_member_role_access
-        CHECK (
-            COALESCE(access_level, '') = CASE member_role
-                WHEN 'owner' THEN 'owner'
-                WHEN 'admin' THEN 'writer'
-                WHEN 'member' THEN 'reader'
-                WHEN 'guest' THEN ''
-            END
-        ),
-    CONSTRAINT ck_kb_group_knowledge_space_member_epoch
-        CHECK (membership_epoch >= 0),
-    CONSTRAINT ck_kb_group_knowledge_space_member_tenant
-        CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_group_knowledge_space_member_organization
-        CHECK (organization_id >= 0),
-    FOREIGN KEY (tenant_id, organization_id, binding_id)
-        REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_group_knowledge_space_member_uuid
     ON kb_group_knowledge_space_member (tenant_id, uuid);
@@ -1900,58 +1810,14 @@ CREATE INDEX IF NOT EXISTS idx_kb_group_knowledge_space_member_access
     ON kb_group_knowledge_space_member
        (tenant_id, organization_id, binding_id, actor_id, status);
 
-CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_event_inbox (
-    id BIGINT NOT NULL,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    source_event_id VARCHAR(512) NOT NULL,
-    event_type VARCHAR(64) NOT NULL,
-    binding_id BIGINT,
-    payload_sha256_hex VARCHAR(64) NOT NULL,
-    applied_at TIMESTAMP NOT NULL,
-    PRIMARY KEY (id),
-    CONSTRAINT ck_kb_group_knowledge_space_event_inbox_tenant
-        CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization
-        CHECK (organization_id >= 0),
-    FOREIGN KEY (tenant_id, organization_id, binding_id)
-        REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_group_knowledge_space_event_inbox_uuid
     ON kb_group_knowledge_space_event_inbox (tenant_id, uuid);
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_group_knowledge_space_event_inbox_source
     ON kb_group_knowledge_space_event_inbox (tenant_id, organization_id, source_event_id);
 
-CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_membership_projection (
-    id BIGINT NOT NULL,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    binding_id BIGINT NOT NULL,
-    source_event_id VARCHAR(512) NOT NULL,
-    payload_sha256_hex VARCHAR(64) NOT NULL,
-    target_membership_epoch BIGINT NOT NULL,
-    projection_state VARCHAR(32) NOT NULL,
-    projection_lease_token VARCHAR(64),
-    projection_lease_until TIMESTAMP,
-    last_error_code VARCHAR(64),
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    CONSTRAINT ck_kb_group_knowledge_space_membership_projection_state
-        CHECK (projection_state IN ('pending', 'failed', 'completed')),
-    CONSTRAINT ck_kb_group_knowledge_space_membership_projection_epoch
-        CHECK (target_membership_epoch >= 0),
-    CONSTRAINT ck_kb_group_knowledge_space_membership_projection_tenant
-        CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization
-        CHECK (organization_id >= 0),
-    FOREIGN KEY (tenant_id, organization_id, binding_id)
-        REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_group_knowledge_space_membership_projection_uuid
     ON kb_group_knowledge_space_membership_projection (tenant_id, uuid);
@@ -2010,27 +1876,39 @@ END $$;
 
 ALTER TABLE kb_group_knowledge_space_membership_projection
     DROP CONSTRAINT IF EXISTS ck_kb_group_knowledge_space_membership_projection_organization;
-ALTER TABLE kb_group_knowledge_space_membership_projection
-    ADD CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization
-    CHECK (organization_id >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_group_knowledge_space_membership_projection_organization') THEN
+        ALTER TABLE kb_group_knowledge_space_membership_projection ADD CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization CHECK (organization_id >= 0);
+    END IF;
+END $$;
 
 ALTER TABLE kb_group_knowledge_space_event_inbox
     DROP CONSTRAINT IF EXISTS ck_kb_group_knowledge_space_event_inbox_organization;
-ALTER TABLE kb_group_knowledge_space_event_inbox
-    ADD CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization
-    CHECK (organization_id >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_group_knowledge_space_event_inbox_organization') THEN
+        ALTER TABLE kb_group_knowledge_space_event_inbox ADD CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization CHECK (organization_id >= 0);
+    END IF;
+END $$;
 
 ALTER TABLE kb_group_knowledge_space_member
     DROP CONSTRAINT IF EXISTS ck_kb_group_knowledge_space_member_organization;
-ALTER TABLE kb_group_knowledge_space_member
-    ADD CONSTRAINT ck_kb_group_knowledge_space_member_organization
-    CHECK (organization_id >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_group_knowledge_space_member_organization') THEN
+        ALTER TABLE kb_group_knowledge_space_member ADD CONSTRAINT ck_kb_group_knowledge_space_member_organization CHECK (organization_id >= 0);
+    END IF;
+END $$;
 
 ALTER TABLE kb_group_knowledge_space_binding
     DROP CONSTRAINT IF EXISTS ck_kb_group_knowledge_space_binding_organization;
-ALTER TABLE kb_group_knowledge_space_binding
-    ADD CONSTRAINT ck_kb_group_knowledge_space_binding_organization
-    CHECK (organization_id >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_group_knowledge_space_binding_organization') THEN
+        ALTER TABLE kb_group_knowledge_space_binding ADD CONSTRAINT ck_kb_group_knowledge_space_binding_organization CHECK (organization_id >= 0);
+    END IF;
+END $$;
 
 -- folded migration: migrations/postgres/202607160002_ingestion_job_lease.up.sql
 -- sdkwork:migration
@@ -2079,29 +1957,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_ingestion_job_claimable
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_provider_scope
     ON kb_space (tenant_id, organization_id, id);
 
-CREATE TABLE IF NOT EXISTS kb_provider_credential_reference (
-    id BIGINT PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    implementation_id VARCHAR(128) NOT NULL,
-    display_name VARCHAR(256) NOT NULL,
-    reference_locator TEXT NOT NULL,
-    reference_fingerprint VARCHAR(64) NOT NULL,
-    rotation_state VARCHAR(32) NOT NULL DEFAULT 'current',
-    last_rotated_at TIMESTAMP,
-    created_by VARCHAR(128) NOT NULL,
-    updated_by VARCHAR(128) NOT NULL,
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CHECK (tenant_id > 0),
-    CHECK (organization_id >= 0),
-    CHECK (length(trim(implementation_id)) > 0),
-    CHECK (length(trim(reference_locator)) > 0),
-    CHECK (rotation_state IN ('current', 'rotation_due', 'revoked'))
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_provider_credential_reference_uuid
     ON kb_provider_credential_reference (tenant_id, organization_id, uuid);
@@ -2118,40 +1974,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_provider_credential_reference_active
     )
     WHERE status = 1;
 
-CREATE TABLE IF NOT EXISTS kb_provider_binding (
-    id BIGINT PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    implementation_id VARCHAR(128) NOT NULL,
-    remote_resource_type VARCHAR(64) NOT NULL,
-    remote_resource_id VARCHAR(512) NOT NULL,
-    credential_reference_id BIGINT,
-    lifecycle_state VARCHAR(32) NOT NULL DEFAULT 'draft',
-    capability_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
-    capability_snapshot_version BIGINT NOT NULL DEFAULT 0,
-    last_tested_at TIMESTAMP,
-    activated_at TIMESTAMP,
-    disabled_at TIMESTAMP,
-    last_error_category VARCHAR(64),
-    created_by VARCHAR(128) NOT NULL,
-    updated_by VARCHAR(128) NOT NULL,
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CHECK (tenant_id > 0),
-    CHECK (organization_id >= 0),
-    CHECK (length(trim(implementation_id)) > 0),
-    CHECK (length(trim(remote_resource_type)) > 0),
-    CHECK (length(trim(remote_resource_id)) > 0),
-    CHECK (lifecycle_state IN ('draft', 'testing', 'active', 'degraded', 'disabled', 'failed')),
-    FOREIGN KEY (tenant_id, organization_id, space_id)
-        REFERENCES kb_space(tenant_id, organization_id, id),
-    FOREIGN KEY (tenant_id, organization_id, credential_reference_id)
-        REFERENCES kb_provider_credential_reference(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_provider_binding_uuid
     ON kb_provider_binding (tenant_id, organization_id, uuid);
@@ -2184,44 +2007,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_provider_binding_space_lifecycle
         id DESC
     );
 
-CREATE TABLE IF NOT EXISTS kb_provider_migration_operation (
-    id BIGINT PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    source_binding_id BIGINT NOT NULL,
-    target_binding_id BIGINT NOT NULL,
-    operation_state VARCHAR(32) NOT NULL DEFAULT 'dry_run',
-    idempotency_key VARCHAR(128) NOT NULL,
-    requested_by VARCHAR(128) NOT NULL,
-    checkpoint JSONB NOT NULL DEFAULT '{}'::jsonb,
-    claim_owner VARCHAR(128),
-    claim_token VARCHAR(64),
-    lease_expires_at TIMESTAMP,
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    cutover_at TIMESTAMP,
-    observation_until TIMESTAMP,
-    completed_at TIMESTAMP,
-    last_error_category VARCHAR(64),
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CHECK (tenant_id > 0),
-    CHECK (organization_id >= 0),
-    CHECK (source_binding_id <> target_binding_id),
-    CHECK (operation_state IN (
-        'dry_run', 'preparing', 'validating', 'cutover', 'observing',
-        'completed', 'rolling_back', 'rolled_back', 'failed'
-    )),
-    FOREIGN KEY (tenant_id, organization_id, space_id)
-        REFERENCES kb_space(tenant_id, organization_id, id),
-    FOREIGN KEY (tenant_id, organization_id, source_binding_id)
-        REFERENCES kb_provider_binding(tenant_id, organization_id, id),
-    FOREIGN KEY (tenant_id, organization_id, target_binding_id)
-        REFERENCES kb_provider_binding(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_provider_migration_operation_uuid
     ON kb_provider_migration_operation (tenant_id, organization_id, uuid);
@@ -2286,85 +2072,7 @@ END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_provider_scope
     ON kb_space (tenant_id, organization_id, id);
 
-CREATE TABLE IF NOT EXISTS kb_site_publication (
-    id BIGINT NOT NULL PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    drive_space_uuid VARCHAR(64) NOT NULL,
-    source_root_node_uuid VARCHAR(64),
-    source_scope_uuid VARCHAR(64),
-    publication_type VARCHAR(32) NOT NULL DEFAULT 'wiki',
-    wiki_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-    title VARCHAR(256) NOT NULL,
-    description VARCHAR(2048),
-    homepage_source_path VARCHAR(1024) NOT NULL DEFAULT 'index.md',
-    default_locale VARCHAR(35) NOT NULL DEFAULT 'zh-CN',
-    supported_locales_json JSONB NOT NULL DEFAULT '["zh-CN"]'::jsonb,
-    publication_mode VARCHAR(32) NOT NULL DEFAULT 'REVIEW_REQUIRED',
-    default_visibility VARCHAR(16) NOT NULL DEFAULT 'PRIVATE',
-    update_policy VARCHAR(64) NOT NULL DEFAULT 'KEEP_LAST_PUBLIC_UNTIL_READY',
-    navigation_mode VARCHAR(32) NOT NULL DEFAULT 'DIRECTORY',
-    navigation_config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    theme_key VARCHAR(128) NOT NULL DEFAULT 'sdkwork-wiki-default',
-    theme_version VARCHAR(64) NOT NULL DEFAULT '1',
-    theme_config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-    renderer_policy_version VARCHAR(64) NOT NULL DEFAULT '1',
-    search_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    robots_policy VARCHAR(32) NOT NULL DEFAULT 'NOINDEX_NOFOLLOW',
-    sitemap_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    provider_generation BIGINT NOT NULL DEFAULT 1,
-    navigation_generation BIGINT NOT NULL DEFAULT 1,
-    search_generation BIGINT NOT NULL DEFAULT 1,
-    last_projected_drive_checkpoint BIGINT NOT NULL DEFAULT 0,
-    activated_at TIMESTAMPTZ,
-    paused_at TIMESTAMPTZ,
-    last_error_code VARCHAR(128),
-    created_by BIGINT NOT NULL,
-    updated_by BIGINT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_kb_site_publication_tenant CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_site_publication_organization CHECK (organization_id >= 0),
-    CONSTRAINT ck_kb_site_publication_type CHECK (publication_type = 'wiki'),
-    CONSTRAINT ck_kb_site_publication_state CHECK (wiki_status IN (
-        'DRAFT', 'VALIDATING', 'READY', 'ACTIVE', 'DEGRADED', 'PAUSED', 'ARCHIVED', 'FAILED'
-    )),
-    CONSTRAINT ck_kb_site_publication_mode CHECK (publication_mode IN (
-        'REVIEW_REQUIRED', 'AUTO_PUBLIC_AFTER_CHECKS'
-    )),
-    CONSTRAINT ck_kb_site_publication_visibility CHECK (default_visibility IN (
-        'PRIVATE', 'UNLISTED', 'PUBLIC'
-    )),
-    CONSTRAINT ck_kb_site_publication_update_policy CHECK (update_policy IN (
-        'KEEP_LAST_PUBLIC_UNTIL_READY', 'UNPUBLISH_DURING_PROCESSING'
-    )),
-    CONSTRAINT ck_kb_site_publication_navigation CHECK (navigation_mode IN (
-        'DIRECTORY', 'FRONT_MATTER', 'CURATED'
-    )),
-    CONSTRAINT ck_kb_site_publication_robots CHECK (robots_policy IN (
-        'INDEX_FOLLOW', 'NOINDEX_NOFOLLOW'
-    )),
-    CONSTRAINT ck_kb_site_publication_generation CHECK (
-        provider_generation >= 1 AND navigation_generation >= 1
-        AND search_generation >= 1 AND last_projected_drive_checkpoint >= 0
-    ),
-    CONSTRAINT ck_kb_site_publication_ready_root CHECK (
-        wiki_status IN ('DRAFT', 'VALIDATING', 'ARCHIVED', 'FAILED')
-        OR (source_root_node_uuid IS NOT NULL AND source_scope_uuid IS NOT NULL)
-    ),
-    CONSTRAINT ck_kb_site_publication_json_bounds CHECK (
-        octet_length(supported_locales_json::text) <= 8192
-        AND octet_length(navigation_config_json::text) <= 32768
-        AND octet_length(theme_config_json::text) <= 32768
-    ),
-    CONSTRAINT fk_kb_site_publication_space
-        FOREIGN KEY (tenant_id, organization_id, space_id)
-        REFERENCES kb_space(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_site_publication_uuid
     ON kb_site_publication (tenant_id, uuid);
@@ -2380,100 +2088,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_site_publication_state
         tenant_id, organization_id, wiki_status, updated_at DESC, id DESC
     );
 
-CREATE TABLE IF NOT EXISTS kb_source_file_projection (
-    id BIGINT NOT NULL PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    site_publication_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    drive_space_uuid VARCHAR(64) NOT NULL,
-    drive_node_uuid VARCHAR(64) NOT NULL,
-    drive_version_uuid VARCHAR(64) NOT NULL,
-    source_path VARCHAR(4096) NOT NULL,
-    canonical_route VARCHAR(2048),
-    file_kind VARCHAR(32) NOT NULL,
-    media_type VARCHAR(255) NOT NULL,
-    size_bytes BIGINT NOT NULL,
-    content_sha256 VARCHAR(71) NOT NULL,
-    source_state VARCHAR(32) NOT NULL DEFAULT 'DISCOVERED',
-    publication_state VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-    visibility VARCHAR(16) NOT NULL DEFAULT 'PRIVATE',
-    index_state VARCHAR(32) NOT NULL DEFAULT 'NOT_REQUIRED',
-    title VARCHAR(512),
-    description VARCHAR(2048),
-    locale VARCHAR(35),
-    nav_order INTEGER,
-    nav_hidden BOOLEAN NOT NULL DEFAULT FALSE,
-    scheduled_publish_at TIMESTAMPTZ,
-    published_at TIMESTAMPTZ,
-    unpublished_at TIMESTAMPTZ,
-    public_drive_version_uuid VARCHAR(64),
-    page_public_version BIGINT NOT NULL DEFAULT 0,
-    parser_version VARCHAR(64),
-    renderer_policy_version VARCHAR(64),
-    index_version VARCHAR(64),
-    previous_canonical_route VARCHAR(2048),
-    redirect_status SMALLINT,
-    redirect_expires_at TIMESTAMPTZ,
-    source_sequence_no BIGINT NOT NULL DEFAULT 0,
-    last_source_event_id VARCHAR(128),
-    processing_attempt_count INTEGER NOT NULL DEFAULT 0,
-    next_processing_at TIMESTAMPTZ,
-    processing_lease_owner VARCHAR(128),
-    processing_lease_token VARCHAR(128),
-    processing_lease_expires_at TIMESTAMPTZ,
-    processing_fence BIGINT NOT NULL DEFAULT 0,
-    last_error_code VARCHAR(128),
-    last_error_summary VARCHAR(1024),
-    last_processed_at TIMESTAMPTZ,
-    last_indexed_at TIMESTAMPTZ,
-    created_by BIGINT NOT NULL,
-    updated_by BIGINT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_kb_source_projection_tenant CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_source_projection_organization CHECK (organization_id >= 0),
-    CONSTRAINT ck_kb_source_projection_file_kind CHECK (file_kind IN (
-        'PAGE', 'DOCUMENT', 'PRESENTATION', 'SPREADSHEET', 'CODE', 'MEDIA', 'ASSET', 'ARCHIVE'
-    )),
-    CONSTRAINT ck_kb_source_projection_source_state CHECK (source_state IN (
-        'DISCOVERED', 'QUEUED', 'PROCESSING', 'READY', 'ERROR', 'QUARANTINED', 'DELETED'
-    )),
-    CONSTRAINT ck_kb_source_projection_publication_state CHECK (publication_state IN (
-        'DRAFT', 'IN_REVIEW', 'SCHEDULED', 'PUBLISHED', 'UNPUBLISHED', 'ARCHIVED'
-    )),
-    CONSTRAINT ck_kb_source_projection_visibility CHECK (visibility IN (
-        'PRIVATE', 'UNLISTED', 'PUBLIC'
-    )),
-    CONSTRAINT ck_kb_source_projection_index_state CHECK (index_state IN (
-        'NOT_REQUIRED', 'PENDING', 'INDEXING', 'READY', 'ERROR'
-    )),
-    CONSTRAINT ck_kb_source_projection_hash CHECK (
-        content_sha256 ~ '^sha256:[0-9a-f]{64}$'
-    ),
-    CONSTRAINT ck_kb_source_projection_bounds CHECK (
-        size_bytes >= 0 AND page_public_version >= 0 AND source_sequence_no >= 0
-        AND processing_attempt_count >= 0 AND processing_fence >= 0
-    ),
-    CONSTRAINT ck_kb_source_projection_redirect CHECK (
-        redirect_status IS NULL OR redirect_status IN (301, 302, 307, 308)
-    ),
-    CONSTRAINT ck_kb_source_projection_public_version CHECK (
-        publication_state <> 'PUBLISHED'
-        OR (visibility IN ('UNLISTED', 'PUBLIC')
-            AND canonical_route IS NOT NULL AND public_drive_version_uuid IS NOT NULL
-            AND page_public_version > 0)
-    ),
-    CONSTRAINT fk_kb_source_projection_publication
-        FOREIGN KEY (tenant_id, organization_id, site_publication_id)
-        REFERENCES kb_site_publication(tenant_id, organization_id, id),
-    CONSTRAINT fk_kb_source_projection_space
-        FOREIGN KEY (tenant_id, organization_id, space_id)
-        REFERENCES kb_space(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_projection_uuid
     ON kb_source_file_projection (tenant_id, uuid);
@@ -2512,86 +2127,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_source_projection_public_lookup
     ) WHERE status = 1 AND publication_state = 'PUBLISHED'
       AND visibility IN ('UNLISTED', 'PUBLIC');
 
-CREATE TABLE IF NOT EXISTS kb_source_file_rendition (
-    id BIGINT NOT NULL PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    site_publication_id BIGINT NOT NULL,
-    source_file_projection_id BIGINT NOT NULL,
-    drive_version_uuid VARCHAR(64) NOT NULL,
-    source_content_sha256 VARCHAR(71) NOT NULL,
-    processor_id VARCHAR(128) NOT NULL,
-    processor_version VARCHAR(64) NOT NULL,
-    policy_version VARCHAR(64) NOT NULL,
-    rendition_kind VARCHAR(32) NOT NULL,
-    rendition_key_sha256 VARCHAR(71) NOT NULL,
-    rendition_state VARCHAR(32) NOT NULL DEFAULT 'PENDING',
-    locale VARCHAR(35),
-    rendition_drive_space_uuid VARCHAR(64),
-    rendition_drive_node_uuid VARCHAR(64),
-    rendition_drive_version_uuid VARCHAR(64),
-    media_resource_snapshot JSONB,
-    content_sha256 VARCHAR(71),
-    media_type VARCHAR(255),
-    size_bytes BIGINT,
-    page_or_slide_count INTEGER,
-    width INTEGER,
-    height INTEGER,
-    duration_millis BIGINT,
-    processing_attempt_count INTEGER NOT NULL DEFAULT 0,
-    next_processing_at TIMESTAMPTZ,
-    processing_lease_owner VARCHAR(128),
-    processing_lease_token VARCHAR(128),
-    processing_lease_expires_at TIMESTAMPTZ,
-    processing_fence BIGINT NOT NULL DEFAULT 0,
-    error_code VARCHAR(128),
-    error_summary VARCHAR(1024),
-    processed_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ,
-    created_by BIGINT NOT NULL,
-    updated_by BIGINT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_kb_source_rendition_tenant CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_source_rendition_organization CHECK (organization_id >= 0),
-    CONSTRAINT ck_kb_source_rendition_kind CHECK (rendition_kind IN (
-        'SANITIZED_HTML', 'PDF', 'PAGE_IMAGE', 'THUMBNAIL', 'POSTER', 'PLAIN_TEXT',
-        'SLIDE_TEXT', 'SHEET_PREVIEW', 'ARCHIVE_MANIFEST', 'MEDIA_METADATA'
-    )),
-    CONSTRAINT ck_kb_source_rendition_state CHECK (rendition_state IN (
-        'PENDING', 'PROCESSING', 'READY', 'ERROR', 'QUARANTINED', 'EXPIRED'
-    )),
-    CONSTRAINT ck_kb_source_rendition_source_hash CHECK (
-        source_content_sha256 ~ '^sha256:[0-9a-f]{64}$'
-        AND rendition_key_sha256 ~ '^sha256:[0-9a-f]{64}$'
-        AND (content_sha256 IS NULL OR content_sha256 ~ '^sha256:[0-9a-f]{64}$')
-    ),
-    CONSTRAINT ck_kb_source_rendition_bounds CHECK (
-        processing_attempt_count >= 0 AND processing_fence >= 0
-        AND (size_bytes IS NULL OR size_bytes >= 0)
-        AND (page_or_slide_count IS NULL OR page_or_slide_count >= 0)
-        AND (width IS NULL OR width >= 0) AND (height IS NULL OR height >= 0)
-        AND (duration_millis IS NULL OR duration_millis >= 0)
-    ),
-    CONSTRAINT ck_kb_source_rendition_ready CHECK (
-        rendition_state <> 'READY'
-        OR (rendition_drive_space_uuid IS NOT NULL AND rendition_drive_node_uuid IS NOT NULL
-            AND rendition_drive_version_uuid IS NOT NULL AND content_sha256 IS NOT NULL
-            AND media_type IS NOT NULL AND size_bytes IS NOT NULL AND processed_at IS NOT NULL)
-    ),
-    CONSTRAINT ck_kb_source_rendition_media_snapshot CHECK (
-        media_resource_snapshot IS NULL OR octet_length(media_resource_snapshot::text) <= 32768
-    ),
-    CONSTRAINT fk_kb_source_rendition_publication
-        FOREIGN KEY (tenant_id, organization_id, site_publication_id)
-        REFERENCES kb_site_publication(tenant_id, organization_id, id),
-    CONSTRAINT fk_kb_source_rendition_projection
-        FOREIGN KEY (tenant_id, organization_id, source_file_projection_id)
-        REFERENCES kb_source_file_projection(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_rendition_uuid
     ON kb_source_file_rendition (tenant_id, uuid);
@@ -2609,50 +2145,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_source_rendition_source_version
         drive_version_uuid, rendition_kind, updated_at DESC, id DESC
     );
 
-CREATE TABLE IF NOT EXISTS kb_drive_source_checkpoint (
-    id BIGINT NOT NULL PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    site_publication_id BIGINT NOT NULL,
-    drive_space_uuid VARCHAR(64) NOT NULL,
-    source_scope_uuid VARCHAR(64) NOT NULL,
-    last_sequence_no BIGINT NOT NULL DEFAULT 0,
-    last_event_id VARCHAR(128),
-    stream_state VARCHAR(32) NOT NULL DEFAULT 'HEALTHY',
-    gap_from_sequence_no BIGINT,
-    gap_to_sequence_no BIGINT,
-    reconciliation_cursor VARCHAR(2048),
-    reconciliation_started_at TIMESTAMPTZ,
-    reconciliation_completed_at TIMESTAMPTZ,
-    lease_owner VARCHAR(128),
-    lease_token VARCHAR(128),
-    lease_expires_at TIMESTAMPTZ,
-    fence_token BIGINT NOT NULL DEFAULT 0,
-    last_event_time TIMESTAMPTZ,
-    last_observed_at TIMESTAMPTZ,
-    last_error_code VARCHAR(128),
-    last_error_summary VARCHAR(1024),
-    created_by BIGINT NOT NULL,
-    updated_by BIGINT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_kb_drive_checkpoint_tenant CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_drive_checkpoint_organization CHECK (organization_id >= 0),
-    CONSTRAINT ck_kb_drive_checkpoint_state CHECK (stream_state IN (
-        'HEALTHY', 'GAP_DETECTED', 'RECONCILING', 'PAUSED', 'FAILED'
-    )),
-    CONSTRAINT ck_kb_drive_checkpoint_sequence CHECK (
-        last_sequence_no >= 0 AND fence_token >= 0
-        AND (gap_from_sequence_no IS NULL OR gap_from_sequence_no > last_sequence_no)
-        AND (gap_to_sequence_no IS NULL OR gap_to_sequence_no >= gap_from_sequence_no)
-    ),
-    CONSTRAINT fk_kb_drive_checkpoint_publication
-        FOREIGN KEY (tenant_id, organization_id, site_publication_id)
-        REFERENCES kb_site_publication(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_checkpoint_uuid
     ON kb_drive_source_checkpoint (tenant_id, uuid);
@@ -2669,56 +2162,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_drive_checkpoint_reconcile
         tenant_id, organization_id, stream_state, lease_expires_at, updated_at, id
     ) WHERE status = 1 AND stream_state IN ('GAP_DETECTED', 'RECONCILING', 'FAILED');
 
-CREATE TABLE IF NOT EXISTS kb_drive_event_inbox (
-    id BIGINT NOT NULL PRIMARY KEY,
-    uuid VARCHAR(64) NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    organization_id BIGINT NOT NULL,
-    site_publication_id BIGINT NOT NULL,
-    checkpoint_id BIGINT NOT NULL,
-    source_event_id VARCHAR(128) NOT NULL,
-    event_type VARCHAR(128) NOT NULL,
-    sequence_no BIGINT NOT NULL,
-    drive_node_uuid VARCHAR(64) NOT NULL,
-    drive_version_uuid VARCHAR(64),
-    payload_sha256 VARCHAR(71) NOT NULL,
-    payload_json JSONB NOT NULL,
-    source_event_time TIMESTAMPTZ NOT NULL,
-    processing_state VARCHAR(32) NOT NULL DEFAULT 'RECEIVED',
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    next_retry_at TIMESTAMPTZ,
-    lease_owner VARCHAR(128),
-    lease_token VARCHAR(128),
-    lease_expires_at TIMESTAMPTZ,
-    last_error_code VARCHAR(128),
-    last_error_summary VARCHAR(1024),
-    received_at TIMESTAMPTZ NOT NULL,
-    applied_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
-    CONSTRAINT ck_kb_drive_inbox_tenant CHECK (tenant_id > 0),
-    CONSTRAINT ck_kb_drive_inbox_organization CHECK (organization_id >= 0),
-    CONSTRAINT ck_kb_drive_inbox_event_type CHECK (event_type IN (
-        'drive.node.version.committed.v1', 'drive.node.path.changed.v1',
-        'drive.node.eligibility.changed.v1', 'drive.node.deleted.v1'
-    )),
-    CONSTRAINT ck_kb_drive_inbox_state CHECK (processing_state IN (
-        'RECEIVED', 'DEFERRED', 'APPLIED', 'RETRY', 'DEAD_LETTER', 'IGNORED'
-    )),
-    CONSTRAINT ck_kb_drive_inbox_bounds CHECK (
-        sequence_no >= 1 AND attempt_count >= 0 AND octet_length(payload_json::text) <= 65536
-    ),
-    CONSTRAINT ck_kb_drive_inbox_hash CHECK (
-        payload_sha256 ~ '^sha256:[0-9a-f]{64}$'
-    ),
-    CONSTRAINT fk_kb_drive_inbox_publication
-        FOREIGN KEY (tenant_id, organization_id, site_publication_id)
-        REFERENCES kb_site_publication(tenant_id, organization_id, id),
-    CONSTRAINT fk_kb_drive_inbox_checkpoint
-        FOREIGN KEY (tenant_id, organization_id, checkpoint_id)
-        REFERENCES kb_drive_source_checkpoint(tenant_id, organization_id, id)
-);
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_inbox_uuid
     ON kb_drive_event_inbox (tenant_id, uuid);
@@ -2984,11 +2428,17 @@ BEGIN
             RAISE EXCEPTION '% has % rows without an owning organization', table_name, missing_count;
         END IF;
         EXECUTE format('ALTER TABLE %I ALTER COLUMN organization_id SET NOT NULL', table_name);
-        EXECUTE format(
-            'ALTER TABLE %I ADD CONSTRAINT %I CHECK (organization_id >= 0) NOT VALID',
-            table_name,
-            'ck_' || table_name || '_organization'
-        );
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint c
+            JOIN pg_class r ON r.oid = c.conrelid
+            WHERE c.conname = 'ck_' || table_name || '_organization' AND r.relname = table_name
+        ) THEN
+            EXECUTE format(
+                'ALTER TABLE %I ADD CONSTRAINT %I CHECK (organization_id >= 0) NOT VALID',
+                table_name,
+                'ck_' || table_name || '_organization'
+            );
+        END IF;
         EXECUTE format(
             'ALTER TABLE %I VALIDATE CONSTRAINT %I',
             table_name,
@@ -3003,27 +2453,32 @@ BEGIN
 END $$;
 
 ALTER TABLE kb_space DROP CONSTRAINT IF EXISTS ck_kb_space_organization;
-ALTER TABLE kb_space ADD CONSTRAINT ck_kb_space_organization CHECK (organization_id >= 0) NOT VALID;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_space_organization') THEN
+        ALTER TABLE kb_space ADD CONSTRAINT ck_kb_space_organization CHECK (organization_id >= 0) NOT VALID;
+    END IF;
+END $$;
 ALTER TABLE kb_space VALIDATE CONSTRAINT ck_kb_space_organization;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_scope_id ON kb_space (tenant_id, organization_id, id);
 
 DROP INDEX IF EXISTS uk_kb_source_identity;
-CREATE UNIQUE INDEX uk_kb_source_identity ON kb_source (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_identity ON kb_source (
     tenant_id, organization_id, space_id, source_type,
     COALESCE(provider, ''), COALESCE(drive_bucket, ''), COALESCE(drive_prefix, '')
 ) WHERE status = 1;
 
 DROP INDEX IF EXISTS uk_kb_space_drive_space;
-CREATE UNIQUE INDEX uk_kb_space_drive_space
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_drive_space
     ON kb_space (tenant_id, organization_id, drive_space_id)
     WHERE drive_space_id IS NOT NULL AND status = 1;
 DROP INDEX IF EXISTS uk_kb_drive_object_ref_locator;
-CREATE UNIQUE INDEX uk_kb_drive_object_ref_locator ON kb_drive_object_ref (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_locator ON kb_drive_object_ref (
     tenant_id, organization_id, space_id, drive_storage_provider_id,
     drive_bucket, drive_object_key, COALESCE(drive_object_version, ''), object_role
 );
 DROP INDEX IF EXISTS uk_kb_document_identity;
-CREATE UNIQUE INDEX uk_kb_document_identity ON kb_document (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_identity ON kb_document (
     tenant_id, organization_id, space_id, collection_id, identity_scope,
     COALESCE(source_id, 0),
     (
@@ -3034,13 +2489,13 @@ CREATE UNIQUE INDEX uk_kb_document_identity ON kb_document (
     )
 ) WHERE status = 1;
 DROP INDEX IF EXISTS uk_kb_document_version_no;
-CREATE UNIQUE INDEX uk_kb_document_version_no
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_no
     ON kb_document_version (tenant_id, organization_id, document_id, version_no);
 DROP INDEX IF EXISTS uk_kb_chunk_document_version_chunk;
-CREATE UNIQUE INDEX uk_kb_chunk_document_version_chunk
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_chunk_document_version_chunk
     ON kb_chunk (tenant_id, organization_id, document_version_id, chunk_index);
 DROP INDEX IF EXISTS uk_kb_embedding_index_chunk;
-CREATE UNIQUE INDEX uk_kb_embedding_index_chunk
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_embedding_index_chunk
     ON kb_embedding (tenant_id, organization_id, index_id, chunk_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_index_active_scope_kind
     ON kb_index (
@@ -3048,40 +2503,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_index_active_scope_kind
     )
     WHERE status = 1;
 DROP INDEX IF EXISTS uk_kb_ingestion_job_idempotency;
-CREATE UNIQUE INDEX uk_kb_ingestion_job_idempotency
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_idempotency
     ON kb_ingestion_job (tenant_id, organization_id, space_id, idempotency_key);
 DROP INDEX IF EXISTS uk_kb_okf_concept_id;
-CREATE UNIQUE INDEX uk_kb_okf_concept_id
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_id
     ON kb_okf_concept (tenant_id, organization_id, space_id, concept_id);
 DROP INDEX IF EXISTS uk_kb_okf_concept_path;
-CREATE UNIQUE INDEX uk_kb_okf_concept_path
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_path
     ON kb_okf_concept (tenant_id, organization_id, space_id, logical_path);
 DROP INDEX IF EXISTS uk_kb_okf_concept_revision_no;
-CREATE UNIQUE INDEX uk_kb_okf_concept_revision_no
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_revision_no
     ON kb_okf_concept_revision (
         tenant_id, organization_id, concept_row_id, revision_no
     );
 DROP INDEX IF EXISTS uk_kb_okf_bundle_file_path;
-CREATE UNIQUE INDEX uk_kb_okf_bundle_file_path
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_bundle_file_path
     ON kb_okf_bundle_file (tenant_id, organization_id, space_id, logical_path);
 DROP INDEX IF EXISTS uk_kb_okf_log_entry_sequence;
-CREATE UNIQUE INDEX uk_kb_okf_log_entry_sequence
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_log_entry_sequence
     ON kb_okf_log_entry (tenant_id, organization_id, space_id, sequence_no);
 DROP INDEX IF EXISTS uk_kb_space_context;
-CREATE UNIQUE INDEX uk_kb_space_context ON kb_space_context_binding (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_context ON kb_space_context_binding (
     tenant_id, organization_id, space_id, context_type, context_id
 ) WHERE status = 1;
 DROP INDEX IF EXISTS uk_kb_okf_concept_link_edge;
-CREATE UNIQUE INDEX uk_kb_okf_concept_link_edge ON kb_okf_concept_link (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_link_edge ON kb_okf_concept_link (
     tenant_id, organization_id, space_id,
     from_concept_id, to_concept_id, anchor_text
 );
 DROP INDEX IF EXISTS uk_kb_market_listing_space;
-CREATE UNIQUE INDEX uk_kb_market_listing_space
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_listing_space
     ON kb_market_listing (tenant_id, organization_id, space_id)
     WHERE status = 1;
 DROP INDEX IF EXISTS uk_kb_market_subscription_actor_listing;
-CREATE UNIQUE INDEX uk_kb_market_subscription_actor_listing
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_subscription_actor_listing
     ON kb_market_subscription (
         tenant_id, organization_id, subscriber_actor_id, listing_id
     )
@@ -3099,50 +2554,138 @@ CREATE INDEX IF NOT EXISTS idx_kb_retrieval_hit_scope_trace_rank
         tenant_id, organization_id, retrieval_trace_id, result_rank, id
     );
 
-ALTER TABLE kb_collection ADD CONSTRAINT fk_kb_collection_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_source ADD CONSTRAINT fk_kb_source_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_drive_object_ref ADD CONSTRAINT fk_kb_drive_object_ref_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_document ADD CONSTRAINT fk_kb_document_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_document_version ADD CONSTRAINT fk_kb_document_version_document_scope
-    FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_chunk ADD CONSTRAINT fk_kb_chunk_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_chunk ADD CONSTRAINT fk_kb_chunk_document_scope
-    FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_index ADD CONSTRAINT fk_kb_index_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_embedding ADD CONSTRAINT fk_kb_embedding_index_scope
-    FOREIGN KEY (tenant_id, organization_id, index_id) REFERENCES kb_index(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_embedding ADD CONSTRAINT fk_kb_embedding_chunk_scope
-    FOREIGN KEY (tenant_id, organization_id, chunk_id) REFERENCES kb_chunk(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_trace_scope
-    FOREIGN KEY (tenant_id, organization_id, retrieval_trace_id) REFERENCES kb_retrieval_trace(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_chunk_scope
-    FOREIGN KEY (tenant_id, organization_id, chunk_id) REFERENCES kb_chunk(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_document_scope
-    FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_version_scope
-    FOREIGN KEY (tenant_id, organization_id, document_version_id) REFERENCES kb_document_version(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_agent_knowledge_binding ADD CONSTRAINT fk_kb_agent_binding_profile_scope
-    FOREIGN KEY (tenant_id, organization_id, profile_id) REFERENCES kb_agent_profile(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_agent_knowledge_binding ADD CONSTRAINT fk_kb_agent_binding_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_ingestion_job ADD CONSTRAINT fk_kb_ingestion_job_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_ingestion_job_item ADD CONSTRAINT fk_kb_ingestion_job_item_job_scope
-    FOREIGN KEY (tenant_id, organization_id, job_id) REFERENCES kb_ingestion_job(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_okf_concept ADD CONSTRAINT fk_kb_okf_concept_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_okf_concept_revision ADD CONSTRAINT fk_kb_okf_revision_concept_scope
-    FOREIGN KEY (tenant_id, organization_id, concept_row_id) REFERENCES kb_okf_concept(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_market_listing ADD CONSTRAINT fk_kb_market_listing_space_scope
-    FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
-ALTER TABLE kb_market_subscription ADD CONSTRAINT fk_kb_market_subscription_listing_scope
-    FOREIGN KEY (tenant_id, organization_id, listing_id) REFERENCES kb_market_listing(tenant_id, organization_id, id) NOT VALID;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_collection_space_scope') THEN
+        ALTER TABLE kb_collection ADD CONSTRAINT fk_kb_collection_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_source_space_scope') THEN
+        ALTER TABLE kb_source ADD CONSTRAINT fk_kb_source_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_drive_object_ref_space_scope') THEN
+        ALTER TABLE kb_drive_object_ref ADD CONSTRAINT fk_kb_drive_object_ref_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_document_space_scope') THEN
+        ALTER TABLE kb_document ADD CONSTRAINT fk_kb_document_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_document_version_document_scope') THEN
+        ALTER TABLE kb_document_version ADD CONSTRAINT fk_kb_document_version_document_scope FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_chunk_space_scope') THEN
+        ALTER TABLE kb_chunk ADD CONSTRAINT fk_kb_chunk_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_chunk_document_scope') THEN
+        ALTER TABLE kb_chunk ADD CONSTRAINT fk_kb_chunk_document_scope FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_index_space_scope') THEN
+        ALTER TABLE kb_index ADD CONSTRAINT fk_kb_index_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_embedding_index_scope') THEN
+        ALTER TABLE kb_embedding ADD CONSTRAINT fk_kb_embedding_index_scope FOREIGN KEY (tenant_id, organization_id, index_id) REFERENCES kb_index(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_embedding_chunk_scope') THEN
+        ALTER TABLE kb_embedding ADD CONSTRAINT fk_kb_embedding_chunk_scope FOREIGN KEY (tenant_id, organization_id, chunk_id) REFERENCES kb_chunk(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_retrieval_hit_trace_scope') THEN
+        ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_trace_scope FOREIGN KEY (tenant_id, organization_id, retrieval_trace_id) REFERENCES kb_retrieval_trace(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_retrieval_hit_chunk_scope') THEN
+        ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_chunk_scope FOREIGN KEY (tenant_id, organization_id, chunk_id) REFERENCES kb_chunk(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_retrieval_hit_document_scope') THEN
+        ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_document_scope FOREIGN KEY (tenant_id, organization_id, document_id) REFERENCES kb_document(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_retrieval_hit_version_scope') THEN
+        ALTER TABLE kb_retrieval_hit ADD CONSTRAINT fk_kb_retrieval_hit_version_scope FOREIGN KEY (tenant_id, organization_id, document_version_id) REFERENCES kb_document_version(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_agent_binding_profile_scope') THEN
+        ALTER TABLE kb_agent_knowledge_binding ADD CONSTRAINT fk_kb_agent_binding_profile_scope FOREIGN KEY (tenant_id, organization_id, profile_id) REFERENCES kb_agent_profile(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_agent_binding_space_scope') THEN
+        ALTER TABLE kb_agent_knowledge_binding ADD CONSTRAINT fk_kb_agent_binding_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_ingestion_job_space_scope') THEN
+        ALTER TABLE kb_ingestion_job ADD CONSTRAINT fk_kb_ingestion_job_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_ingestion_job_item_job_scope') THEN
+        ALTER TABLE kb_ingestion_job_item ADD CONSTRAINT fk_kb_ingestion_job_item_job_scope FOREIGN KEY (tenant_id, organization_id, job_id) REFERENCES kb_ingestion_job(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_okf_concept_space_scope') THEN
+        ALTER TABLE kb_okf_concept ADD CONSTRAINT fk_kb_okf_concept_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_okf_revision_concept_scope') THEN
+        ALTER TABLE kb_okf_concept_revision ADD CONSTRAINT fk_kb_okf_revision_concept_scope FOREIGN KEY (tenant_id, organization_id, concept_row_id) REFERENCES kb_okf_concept(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_market_listing_space_scope') THEN
+        ALTER TABLE kb_market_listing ADD CONSTRAINT fk_kb_market_listing_space_scope FOREIGN KEY (tenant_id, organization_id, space_id) REFERENCES kb_space(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_kb_market_subscription_listing_scope') THEN
+        ALTER TABLE kb_market_subscription ADD CONSTRAINT fk_kb_market_subscription_listing_scope FOREIGN KEY (tenant_id, organization_id, listing_id) REFERENCES kb_market_listing(tenant_id, organization_id, id) NOT VALID;
+    END IF;
+END $$;
 
 ALTER TABLE kb_collection VALIDATE CONSTRAINT fk_kb_collection_space_scope;
 ALTER TABLE kb_source VALIDATE CONSTRAINT fk_kb_source_space_scope;
@@ -3240,19 +2783,29 @@ WHERE status = 3
       );
 
 ALTER TABLE kb_outbox_event DROP CONSTRAINT IF EXISTS ck_kb_outbox_event_claim_pair;
-ALTER TABLE kb_outbox_event ADD CONSTRAINT ck_kb_outbox_event_claim_pair CHECK (
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_outbox_event_claim_pair') THEN
+        ALTER TABLE kb_outbox_event ADD CONSTRAINT ck_kb_outbox_event_claim_pair CHECK (
     (status = 3 AND claimed_at IS NOT NULL AND claim_owner IS NOT NULL AND claim_token IS NOT NULL)
     OR
     (status <> 3 AND claimed_at IS NULL AND claim_owner IS NULL AND claim_token IS NULL)
 ) NOT VALID;
+    END IF;
+END $$;
 ALTER TABLE kb_outbox_event VALIDATE CONSTRAINT ck_kb_outbox_event_claim_pair;
 
 ALTER TABLE kb_outbox_event DROP CONSTRAINT IF EXISTS ck_kb_outbox_event_dead_letter;
-ALTER TABLE kb_outbox_event ADD CONSTRAINT ck_kb_outbox_event_dead_letter CHECK (
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_kb_outbox_event_dead_letter') THEN
+        ALTER TABLE kb_outbox_event ADD CONSTRAINT ck_kb_outbox_event_dead_letter CHECK (
     (status = 4 AND dead_lettered_at IS NOT NULL)
     OR
     (status <> 4 AND dead_lettered_at IS NULL)
 ) NOT VALID;
+    END IF;
+END $$;
 ALTER TABLE kb_outbox_event VALIDATE CONSTRAINT ck_kb_outbox_event_dead_letter;
 
 CREATE INDEX IF NOT EXISTS idx_kb_outbox_event_scope_claim
