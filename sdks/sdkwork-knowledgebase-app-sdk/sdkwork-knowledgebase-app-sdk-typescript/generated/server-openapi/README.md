@@ -18,7 +18,7 @@ pnpm add @sdkwork/knowledgebase-app-sdk
 import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
 const client = new SdkworkKnowledgebaseAppClient({
-  baseUrl: '/app/v3/api',
+  baseUrl: 'http://localhost:8080',
   timeout: 30000,
 });
 
@@ -44,7 +44,7 @@ Access-Token: <accessToken>
 import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
 const client = new SdkworkKnowledgebaseAppClient({
-  baseUrl: '/app/v3/api',
+  baseUrl: 'http://localhost:8080',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
     'X-Custom-Header': 'value',

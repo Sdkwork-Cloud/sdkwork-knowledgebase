@@ -527,13 +527,10 @@ impl PostgresKnowledgeDocumentStore {
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = document_to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(document_sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(document_sqlx_error)?;
         self.ensure_document_quota_on(&mut transaction, limits)
             .await?;
         let document = self
@@ -553,13 +550,10 @@ impl PostgresKnowledgeDocumentStore {
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = document_to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(document_sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(document_sqlx_error)?;
 
         if let Some(document) = self
             .find_document_by_identity_on(&record, &mut transaction)
@@ -1689,13 +1683,10 @@ impl PostgresIngestionJobStore {
 
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(job_sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(job_sqlx_error)?;
         let job_id_i64 = job_to_i64("job_id", job_id)?;
 
         let current_row = sqlx::query(
@@ -1818,13 +1809,10 @@ impl PostgresIngestionJobStore {
 
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(job_sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(job_sqlx_error)?;
         let job_id_i64 = job_to_i64("job_id", record.job_id)?;
 
         let current_row = sqlx::query(
@@ -2532,7 +2520,8 @@ impl IngestionJobStore for PostgresIngestionJobStore {
         job_id: u64,
         outbox: AppendOutboxEventRecord,
     ) -> Result<IngestionJob, IngestionJobStoreError> {
-        PostgresIngestionJobStore::mark_running_job_succeeded_with_outbox(self, job_id, outbox).await
+        PostgresIngestionJobStore::mark_running_job_succeeded_with_outbox(self, job_id, outbox)
+            .await
     }
 
     async fn complete_running_ingestion_with_chunks_and_outbox(
@@ -2552,13 +2541,10 @@ impl PostgresIngestionJobStore {
     ) -> Result<CreateOrGetIngestionJobResult, IngestionJobStoreError> {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = job_to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(job_sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(job_sqlx_error)?;
 
         if let Some(row) = self
             .find_job_by_idempotency_on(&record, &mut transaction)

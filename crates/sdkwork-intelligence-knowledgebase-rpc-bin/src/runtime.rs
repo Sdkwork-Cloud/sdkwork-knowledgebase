@@ -1,7 +1,7 @@
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -10,11 +10,10 @@ use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, database_config_from_url, is_postgres_database_url,
-    knowledgebase_health_check, knowledgebase_process_pool_budget_from_url,
-    require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
-    PostgresGroupKnowledgeSpaceBindingStore, PostgresKnowledgeOkfBundleFileStore,
-    PostgresKnowledgeSpaceStore, SqlxWikiPersistenceStore,
+    connect_knowledgebase_and_install_schema, database_config_from_url, knowledgebase_health_check,
+    knowledgebase_process_pool_budget_from_url, require_postgres_rls_organization_id,
+    require_postgres_rls_tenant_id, PostgresGroupKnowledgeSpaceBindingStore,
+    PostgresKnowledgeOkfBundleFileStore, PostgresKnowledgeSpaceStore, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_rpc::GroupKnowledgeSpaceLifecycleRuntime;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -33,10 +32,9 @@ use sdkwork_knowledgebase_contract::group_space::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool_with_max_connections, knowledgebase_drive_health_check,
-    resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveNodeTreeAdapter,
-    KnowledgebaseDriveRootScopeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
-    KnowledgebaseKnowledgeAccessControlAdapter,
+    resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveRootScopeAdapter,
+    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use thiserror::Error;
 
@@ -188,10 +186,6 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                 tenant_id,
                 self.operator_id.clone(),
             )),
-            drive_tree: Arc::new(KnowledgebaseDriveNodeTreeAdapter::new(
-                self.drive_pool.clone(),
-                scope.tenant_id.to_string(),
-            )),
             wiki_drive_scope: Arc::new(KnowledgebaseDriveRootScopeAdapter::new(
                 self.drive_pool.clone(),
                 scope.tenant_id.to_string(),
@@ -342,7 +336,6 @@ struct GroupKnowledgeSpaceLifecycleDependencies {
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
-    drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
     wiki_drive_scope: Arc<KnowledgebaseDriveRootScopeAdapter>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
 }

@@ -16,10 +16,10 @@ const PUBLICATION_UUID: &str = "11111111-1111-4111-8111-111111111501";
 
 #[tokio::test]
 async fn active_publication_and_route_resolution_are_scope_isolated_and_non_disclosing() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_public_wiki(&pool).await;
 
     let publication = store
@@ -78,10 +78,10 @@ let Some((pool, store)) = test_store().await else {
 
 #[tokio::test]
 async fn content_lookup_revalidates_exact_public_version() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_public_wiki(&pool).await;
     let projection = store
         .get_public_content_projection(SCOPE, 501, &projection_uuid(601), 1)
@@ -115,10 +115,10 @@ let Some((pool, store)) = test_store().await else {
 
 #[tokio::test]
 async fn navigation_and_search_use_bounded_keyset_windows_and_public_filters() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_public_wiki(&pool).await;
 
     let first = store

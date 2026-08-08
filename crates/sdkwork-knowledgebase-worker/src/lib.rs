@@ -187,22 +187,6 @@ struct PhaseSlots {
     wiki_delivery_renewal: Option<PhaseHandle>,
 }
 
-impl PhaseSlots {
-    fn as_array(&mut self) -> [&mut Option<PhaseHandle>; 9] {
-        [
-            &mut self.outbox,
-            &mut self.ingestion,
-            &mut self.provider_migration,
-            &mut self.group_archive,
-            &mut self.wiki_backfill,
-            &mut self.wiki_drive_relay,
-            &mut self.wiki_drive_events,
-            &mut self.wiki_sources,
-            &mut self.wiki_delivery_renewal,
-        ]
-    }
-}
-
 /// Drives one maintenance phase under a bounded time budget with panic and
 /// error isolation.
 ///

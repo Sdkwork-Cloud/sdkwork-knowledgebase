@@ -1,0 +1,82 @@
+# PACKAGING_SPEC §4: container builds MUST NOT ship build workspaces,
+# dependency installs, VCS metadata, or repository tooling. The canonical
+# image build uses a staged context (dist/container-image-build) via
+# scripts/build-knowledgebase-container.mjs; this file additionally guards any
+# direct `docker build .` from the repository root.
+
+# Build workspaces and toolchains
+target/
+build/
+out/
+*.o
+*.rlib
+*.pdb
+*.so
+*.dylib
+
+# Dependency installs
+node_modules/
+.pnpm/
+vendor/
+.pnpm-store/
+
+# VCS and repository metadata
+.git/
+.svn/
+.hg/
+.github/
+
+# Agent/repository documentation and tooling (not runtime inputs)
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CODEX.md
+.sdkwork/
+.agents/
+docs/
+specs/
+apis/
+examples/
+jobs/
+plugins/
+
+# Source trees (never runtime inputs; the image ships binaries + dist only)
+crates/
+apps/
+sdks/
+external/
+generated/
+
+# Tests and fixtures
+tests/
+test/
+*.test.mjs
+*.spec.mjs
+coverage/
+
+# Dev/editor config
+.vscode/
+.idea/
+.editorconfig
+.prettierrc*
+.eslintrc*
+
+# Secrets and local state (templates are exempt via *.example)
+.env
+.env.*
+!.env.release.example
+secrets/
+*.pem
+*.key
+*.sqlite
+*.db
+
+# Local packaged output (the image build context is assembled separately)
+dist/install-packages/
+dist/install-package-staging/
+dist/container-image-build/
+
+# Misc archives/logs
+*.zip
+*.log
+*.pid

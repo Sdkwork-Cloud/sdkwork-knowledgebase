@@ -164,6 +164,21 @@
       "runtimeTarget": "server"
     },
     {
+      "id": "linux-x64-standalone-container-oci",
+      "profile": "container",
+      "platform": "linux",
+      "architecture": "x64",
+      "formats": ["oci"],
+      "runner": "ubuntu-24.04",
+      "outputGlobs": [
+        "target/release/sdkwork-api-knowledgebase-standalone-gateway*",
+        "target/release/sdkwork-knowledgebase-worker*",
+        "apps/sdkwork-knowledgebase-pc/dist/**"
+      ],
+      "deploymentProfile": "standalone",
+      "runtimeTarget": "container"
+    },
+    {
       "id": "web-universal-cloud-browser-zip",
       "profile": "browser",
       "platform": "web",

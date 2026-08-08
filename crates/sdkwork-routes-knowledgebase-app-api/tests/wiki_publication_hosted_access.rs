@@ -1,9 +1,9 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::{
     body::{to_bytes, Body},
     http::{header, Method, Request, StatusCode},
     response::Response,
 };
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_routes_knowledgebase_app_api::{
     paths, KnowledgeAppRequestContext, KnowledgebaseRuntime,
 };
@@ -30,10 +30,12 @@ fn optional_postgres_database_url() -> Option<String> {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_wiki_routes_enforce_reader_writer_and_owner_roles() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime).await;
     grant_role(&runtime, space_id, WRITER_ID, "writer").await;
     grant_role(&runtime, space_id, READER_ID, "reader").await;
@@ -316,7 +318,9 @@ async fn response_json(response: Response) -> Value {
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);

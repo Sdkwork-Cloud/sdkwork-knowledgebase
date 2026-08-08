@@ -1,0 +1,221 @@
+# sdkwork-knowledgebase standalone container composition.
+#
+# runtimeTarget = "container", deploymentProfile = "standalone".
+# Build the image first with `pnpm build:container` (produces
+# sdkwork-knowledgebase:local), then `docker compose up -d`.
+#
+# Port strategy: the gateway listens on 0.0.0.0:18081 inside the container
+# (the application public ingress — the single HTTP bind of the application
+# plane serving app/backend/open/internal API surfaces plus /healthz /readyz
+# /livez /metrics /openapi.json, per APP_RUNTIME_TOPOLOGY_SPEC). The host
+# maps 3904 -> 18081 so the container never collides with `pnpm dev` (gateway
+# 18081, vite 5184) or the reserved 3900 platform gateway port. PostgreSQL and
+# Redis stay on the compose network and expose no host ports, so the
+# composition is conflict-free by construction.
+
+services:
+  postgres:
+    # pgvector image: the knowledgebase baseline requires the `vector`
+    # extension (pgvector/pgvector is a drop-in PostgreSQL 16 image).
+    image: pgvector/pgvector:pg16
+    # Survive host/WSL restarts together with the gateway (commercial ops).
+    restart: unless-stopped
+    # Server-side connection ceiling: sized for the app pools below (tune
+    # PG_MAX_CONNECTIONS together with KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS).
+    command: ["postgres", "-c", "max_connections=${PG_MAX_CONNECTIONS:-200}"]
+    environment:
+      POSTGRES_DB: ${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}
+      POSTGRES_USER: ${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod}
+      POSTGRES_PASSWORD: ${KNOWLEDGEBASE_POSTGRES_PASSWORD:-sdkwork_ai_prod}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates the same-named workspace schema on first initialization
+      # (the sdkwork-database lifecycle pins search_path to it).
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod} -d ${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    # Survive host/WSL restarts together with the gateway (commercial ops).
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    image: ${KNOWLEDGEBASE_IMAGE:-sdkwork-knowledgebase:local}
+    ports:
+      - "${KNOWLEDGEBASE_HOST_HTTP_PORT:-3904}:18081"
+    environment:
+      # Deployment identity (DEPLOYMENT_SPEC §5.2).
+      SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: standalone
+      SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: container
+      # Environment posture. The default (development) runs the gateway in
+      # explicit development mode: no IM RPC cluster or Redis hardening is
+      # required, and the IAM resolver accepts the gateway-issued bootstrap
+      # Access-Token (credential-entry login flow) through the development
+      # authentication fallback. Production deployments must switch this to
+      # production/staging and additionally inject SDKWORK_KNOWLEDGEBASE_IM_RPC_*
+      # (see etc/topology/standalone.production.env) and strong secrets.
+      SDKWORK_KNOWLEDGEBASE_ENVIRONMENT: ${KNOWLEDGEBASE_ENVIRONMENT:-development}
+      SDKWORK_ENVIRONMENT: ${KNOWLEDGEBASE_ENVIRONMENT:-development}
+      # Application public ingress bind: topology-resolved, never hard-coded
+      # in source. Container-internal 18081 is the standalone default; the
+      # host port mapping above keeps it off the `pnpm dev` ports.
+      SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND: 0.0.0.0:18081
+      # Tenant/organization identity for the single-tenant standalone
+      # deployment (mirrors the standalone.development topology values).
+      SDKWORK_KNOWLEDGEBASE_TENANT_ID: ${KNOWLEDGEBASE_TENANT_ID:-100001}
+      SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID: ${KNOWLEDGEBASE_ORGANIZATION_ID:-0}
+      SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID: ${KNOWLEDGEBASE_SNOWFLAKE_NODE_ID:-1}
+      # IAM development posture secrets (local defaults; override via .env for
+      # anything real — production must use the _FILE variants with mounted
+      # secrets instead).
+      SDKWORK_IAM_TENANT_SIGNING_MASTER_SECRET: ${SDKWORK_IAM_TENANT_SIGNING_MASTER_SECRET:-sdkwork-knowledgebase-dev-signing-secret}
+      SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY: ${SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY:-sdkwork-knowledgebase-docker-dev-encryption-key-000000}
+      # IAM super-admin bootstrap password: when set, the IAM bootstrap
+      # provisions/updates the password credential for the default admin user
+      # (SDKWORK_IAM_SUPER_ADMIN_PASSWORD). Leave empty for deployments that
+      # register users through the credential-entry flow.
+      SDKWORK_IAM_SUPER_ADMIN_PASSWORD: ${SDKWORK_IAM_SUPER_ADMIN_PASSWORD:-}
+      # Browser CORS allow-list for the API plane. The portal is served
+      # same-origin by the deployment nginx, but direct host-port access and
+      # any cross-origin call must still list every origin that serves the
+      # portal (see docker/nginx/testapikb-knowledgebase.conf).
+      SDKWORK_CORS_ALLOWED_ORIGINS: ${SDKWORK_CORS_ALLOWED_ORIGINS:-http://testapikb.sdkwork.com,http://testapikb.birdcoder.com,http://testapikb.dtupay.com,http://localhost:3904,http://127.0.0.1:3904}
+      # External dependencies are injected at runtime, not baked into the
+      # image. Split database fields (with explicit schema) keep the lifecycle
+      # schema identity unambiguous, and the direct URL is what the gateway's
+      # resolver requires (it takes precedence when both are present).
+      # Hosts/ports default to the compose services and can be pointed at
+      # managed services via .env.
+      SDKWORK_DATABASE_URL: postgresql://${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod}:${KNOWLEDGEBASE_POSTGRES_PASSWORD:-sdkwork_ai_prod}@${KNOWLEDGEBASE_POSTGRES_HOST:-postgres}:${KNOWLEDGEBASE_POSTGRES_PORT:-5432}/${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}?sslmode=disable&options=-c%20search_path%3Dsdkwork_ai_prod
+      SDKWORK_DATABASE_ENGINE: postgresql
+      SDKWORK_DATABASE_HOST: ${KNOWLEDGEBASE_POSTGRES_HOST:-postgres}
+      SDKWORK_DATABASE_PORT: ${KNOWLEDGEBASE_POSTGRES_PORT:-5432}
+      SDKWORK_DATABASE_NAME: ${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_SCHEMA: ${KNOWLEDGEBASE_POSTGRES_SCHEMA:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_USERNAME: ${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_PASSWORD: ${KNOWLEDGEBASE_POSTGRES_PASSWORD:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_SSL_MODE: disable
+      SDKWORK_DATABASE_MAX_CONNECTIONS: ${KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS:-30}
+      SDKWORK_DATABASE_MIN_CONNECTIONS: ${KNOWLEDGEBASE_DATABASE_MIN_CONNECTIONS:-5}
+      SDKWORK_DATABASE_ACQUIRE_TIMEOUT: ${KNOWLEDGEBASE_DATABASE_ACQUIRE_TIMEOUT:-30}
+      SDKWORK_DATABASE_IDLE_TIMEOUT: ${KNOWLEDGEBASE_DATABASE_IDLE_TIMEOUT:-600}
+      SDKWORK_DATABASE_MAX_LIFETIME: ${KNOWLEDGEBASE_DATABASE_MAX_LIFETIME:-1800}
+      # The gateway applies pending schema baseline/migrations on startup.
+      SDKWORK_DATABASE_AUTO_MIGRATE: "1"
+      # Redis powers the distributed rate-limit/idempotency/concurrency
+      # admission stores. Optional in development posture; required for
+      # production/staging.
+      SDKWORK_KNOWLEDGEBASE_REDIS_ENABLED: "true"
+      SDKWORK_KNOWLEDGEBASE_REDIS_HOST: ${KNOWLEDGEBASE_REDIS_HOST:-redis}
+      SDKWORK_KNOWLEDGEBASE_REDIS_PORT: ${KNOWLEDGEBASE_REDIS_PORT:-6379}
+      SDKWORK_KNOWLEDGEBASE_REDIS_DATABASE: "0"
+      SDKWORK_KNOWLEDGEBASE_REDIS_KEY_PREFIX: ${KNOWLEDGEBASE_REDIS_KEY_PREFIX:-sdkwork:knowledgebase}
+      # Drive domain outbox events are consumed by the worker process, never
+      # embedded in the API pod (matches etc/topology/*.env).
+      SDKWORK_DRIVE_DOMAIN_OUTBOX_EMBEDDED_DISPATCH: "false"
+      # Drive object storage root on the durable volume.
+      SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT: /var/lib/sdkwork/knowledgebase/drive
+      # Process log level (tracing reads RUST_LOG directly).
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      # Durable application data lives on a mounted volume
+      # (RUNTIME_DIRECTORY_SPEC §4.5).
+      - knowledgebase-data:/var/lib/sdkwork/knowledgebase
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # Gateway readiness probe: compose can restart/replace the gateway when it
+    # stops answering, and orchestrators can schedule dependents on it.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18081/readyz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    # Commercial deployment guardrails: bound the gateway to predictable CPU
+    # and memory (tune via .env) so noisy neighbors cannot starve the host.
+    deploy:
+      resources:
+        limits:
+          cpus: ${KNOWLEDGEBASE_CPU_LIMIT:-4.0}
+          memory: ${KNOWLEDGEBASE_MEMORY_LIMIT:-4g}
+        reservations:
+          cpus: ${KNOWLEDGEBASE_CPU_RESERVATION:-1.0}
+          memory: ${KNOWLEDGEBASE_MEMORY_RESERVATION:-1g}
+
+  worker:
+    image: ${KNOWLEDGEBASE_IMAGE:-sdkwork-knowledgebase:local}
+    entrypoint: ["/opt/sdkwork/knowledgebase/bin/sdkwork-knowledgebase-worker"]
+    environment:
+      # Worker identity mirrors the api service; the worker consumes the
+      # knowledgebase outbox (ingestion/wiki maintenance) so the standalone
+      # deployment must run it (SDKWORK_DRIVE_DOMAIN_OUTBOX_EMBEDDED_DISPATCH
+      # is false on the API side).
+      SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: standalone
+      SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: container
+      SDKWORK_KNOWLEDGEBASE_ENVIRONMENT: ${KNOWLEDGEBASE_ENVIRONMENT:-development}
+      SDKWORK_ENVIRONMENT: ${KNOWLEDGEBASE_ENVIRONMENT:-development}
+      SDKWORK_KNOWLEDGEBASE_TENANT_ID: ${KNOWLEDGEBASE_TENANT_ID:-100001}
+      SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID: ${KNOWLEDGEBASE_ORGANIZATION_ID:-0}
+      SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID: ${KNOWLEDGEBASE_SNOWFLAKE_NODE_ID:-1}
+      SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY: ${SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY:-sdkwork-knowledgebase-docker-dev-encryption-key-000000}
+      SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID: ${KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID:-9001}
+      SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR: 0.0.0.0:18085
+      SDKWORK_DATABASE_URL: postgresql://${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod}:${KNOWLEDGEBASE_POSTGRES_PASSWORD:-sdkwork_ai_prod}@${KNOWLEDGEBASE_POSTGRES_HOST:-postgres}:${KNOWLEDGEBASE_POSTGRES_PORT:-5432}/${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}?sslmode=disable&options=-c%20search_path%3Dsdkwork_ai_prod
+      SDKWORK_DATABASE_ENGINE: postgresql
+      SDKWORK_DATABASE_HOST: ${KNOWLEDGEBASE_POSTGRES_HOST:-postgres}
+      SDKWORK_DATABASE_PORT: ${KNOWLEDGEBASE_POSTGRES_PORT:-5432}
+      SDKWORK_DATABASE_NAME: ${KNOWLEDGEBASE_POSTGRES_DB:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_SCHEMA: ${KNOWLEDGEBASE_POSTGRES_SCHEMA:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_USERNAME: ${KNOWLEDGEBASE_POSTGRES_USER:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_PASSWORD: ${KNOWLEDGEBASE_POSTGRES_PASSWORD:-sdkwork_ai_prod}
+      SDKWORK_DATABASE_SSL_MODE: disable
+      SDKWORK_DATABASE_MAX_CONNECTIONS: ${KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS:-30}
+      SDKWORK_DATABASE_AUTO_MIGRATE: "1"
+      SDKWORK_KNOWLEDGEBASE_REDIS_ENABLED: "true"
+      SDKWORK_KNOWLEDGEBASE_REDIS_HOST: ${KNOWLEDGEBASE_REDIS_HOST:-redis}
+      SDKWORK_KNOWLEDGEBASE_REDIS_PORT: ${KNOWLEDGEBASE_REDIS_PORT:-6379}
+      SDKWORK_KNOWLEDGEBASE_REDIS_KEY_PREFIX: ${KNOWLEDGEBASE_REDIS_KEY_PREFIX:-sdkwork:knowledgebase}
+      SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT: /var/lib/sdkwork/knowledgebase/drive
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - knowledgebase-data:/var/lib/sdkwork/knowledgebase
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18085/readyz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: ${KNOWLEDGEBASE_WORKER_CPU_LIMIT:-2.0}
+          memory: ${KNOWLEDGEBASE_WORKER_MEMORY_LIMIT:-2g}
+        reservations:
+          cpus: ${KNOWLEDGEBASE_WORKER_CPU_RESERVATION:-0.5}
+          memory: ${KNOWLEDGEBASE_WORKER_MEMORY_RESERVATION:-512m}
+
+volumes:
+  postgres-data:
+  redis-data:
+  knowledgebase-data:

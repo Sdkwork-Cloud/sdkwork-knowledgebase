@@ -61,18 +61,42 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "6c668d76bda9e47fc94fbaf6b529ff85d4a9af70c1efb6bd45f27e2ff8b6c941",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-dify", "--all-targets"] },
+        "sourceFingerprint": "93ea4c6e17b25b711bfc26bd426097b8b6e06cccc34a1703a2af734e3bdd356d",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-dify",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs",
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs",
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "ragflow",
@@ -81,18 +105,42 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "ab190b475d25ebd058ac1be028cab9fa2ec633dfd1d571a8a45c008afe96b500",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-ragflow", "--all-targets"] },
+        "sourceFingerprint": "27895cd5871ad6bd42cdd0546b888377dacb729b7de06e00b4a0da6543d6a484",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-ragflow",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs",
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs",
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "onyx",
@@ -101,18 +149,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "94a9b199b38b9b3b611ef7b3d876664a9e7ade4781cf66545947dc65b9f342ea",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-onyx", "--all-targets"] },
+        "sourceFingerprint": "021747d2c7fe535ac42bf32da66d6779a418b7a10ed26a0d4b0b5ae54564ca56",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-onyx",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "anythingllm",
@@ -121,18 +191,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "6eb3fd6373168c64ed1638378e9732bf259b5af854b8ab6081c886950ec5d45a",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-anythingllm", "--all-targets"] },
+        "sourceFingerprint": "907026cb8289580206659d35a099ccbf871424b9db27336003a3cae33c01a722",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-anythingllm",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "open-webui",
@@ -141,18 +233,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "bb1ba967682b6da9c3c8d19f29bb7bec5362b781210b610c0eb9b8bfbb6a7f9b",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-open-webui", "--all-targets"] },
+        "sourceFingerprint": "271ae075311df8adf686ba3b07bb8446a3218fb35a3e929bffca640cbb118b4b",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-open-webui",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "flowise",
@@ -161,18 +275,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "bd6b9657ae1ed03809eb6d69a7baca2074310cb8d6117e6ec85c7ecf571750e9",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-flowise", "--all-targets"] },
+        "sourceFingerprint": "f9bcd78fa981cfc2982c1335821d6b8ccebd56a40cce04ed8d4fb2437877c14b",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-flowise",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "haystack",
@@ -181,18 +317,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "e231f115cf2d636ef1778f3d569738c598bf6f7d7d4c40fbfa32437d1b7a93c4",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-haystack", "--all-targets"] },
+        "sourceFingerprint": "3367bfb613d9b1e11004cfcbde128c62a843bf1dc2ecc9dd33ebf14830e331ec",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-haystack",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "chroma",
@@ -201,18 +359,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "cfae5be3767f31cab2466caec5641dde3944f0158bafeea12c96ea1257d21865",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-chroma", "--all-targets"] },
+        "sourceFingerprint": "02062aa7b067fdd761942d345394e317c74b115dd7e9e723ab5f185c3011d166",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-chroma",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "qdrant",
@@ -221,18 +401,40 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "aad1fc80df987c07a85c5dbf095cd5bcf57baf4d30d7905391f2052e91efdc57",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-qdrant", "--all-targets"] },
+        "sourceFingerprint": "7932d71bc439815ef4526a27cfc8134c19767ff7e116d8d3d7e1f9deed2d2a70",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-qdrant",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "weaviate",
@@ -241,30 +443,60 @@
         "status": "passed",
         "suiteVersion": "1.0.0",
         "verifiedAt": "2026-07-31",
-        "sourceFingerprint": "eb87698959b37e6a1e1b24aa359fa17c410262980697c0d4956c4aa142ae59f4",
-        "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-weaviate", "--all-targets"] },
+        "sourceFingerprint": "9b3cace0ee7c54d2e55b9dab1eef99b07e676fcf007bdd8ed8f03a89d3ad04cb",
+        "command": {
+          "program": "cargo",
+          "args": [
+            "test",
+            "-p",
+            "sdkwork-knowledgebase-engine-weaviate",
+            "--all-targets"
+          ]
+        },
         "evidence": {
-          "capability": ["crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"],
-          "authentication": ["crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"],
-          "error_mapping": ["crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"],
-          "resilience": ["crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"],
-          "isolation": ["crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"],
-          "health": ["crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"]
+          "capability": [
+            "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"
+          ],
+          "authentication": [
+            "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"
+          ],
+          "error_mapping": [
+            "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"
+          ],
+          "resilience": [
+            "crates/sdkwork-knowledgebase-provider-runtime/tests/runtime.rs"
+          ],
+          "isolation": [
+            "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs"
+          ],
+          "health": [
+            "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"
+          ]
         }
       },
-      "liveCertification": { "status": "pending" }
+      "liveCertification": {
+        "status": "pending"
+      }
     },
     {
       "vendorId": "langchain",
       "contractGate": "not-applicable",
-      "contractCertification": { "status": "not-applicable" },
-      "liveCertification": { "status": "not-applicable" }
+      "contractCertification": {
+        "status": "not-applicable"
+      },
+      "liveCertification": {
+        "status": "not-applicable"
+      }
     },
     {
       "vendorId": "llamaindex",
       "contractGate": "not-applicable",
-      "contractCertification": { "status": "not-applicable" },
-      "liveCertification": { "status": "not-applicable" }
+      "contractCertification": {
+        "status": "not-applicable"
+      },
+      "liveCertification": {
+        "status": "not-applicable"
+      }
     }
   ]
 }

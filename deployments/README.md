@@ -6,8 +6,9 @@ Production deployment descriptors for the `cloud.production` topology profile.
 
 | Path | Purpose |
 |------|---------|
-| `docker/Dockerfile.api` | Single application public-ingress image hosting app/backend/open/internal route surfaces |
-| `docker/Dockerfile.worker` | Background worker (outbox + ingestion maintenance) |
+| `../Dockerfile` | Standalone container image (staged context from `pnpm build:container`; gateway + worker binaries + portal dist + database modules) |
+| `../docker-compose.yml` | Standalone container composition (api + worker + postgres + redis) |
+| `../docker/` | Compose env template, postgres init schema, nginx test-domain reverse proxy |
 | `kubernetes/app-api-deployment.yaml` | App API Deployment + Service |
 | `kubernetes/worker-deployment.yaml` | Background worker Deployment |
 | `kubernetes/ingress.yaml` | NGINX Ingress for app/backend/open/internal API paths |
@@ -18,13 +19,22 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `runbooks/backup-restore.md` | PostgreSQL and Drive object backup/restore |
 | `runbooks/production-launch.md` | Production cutover sequencing, smoke gates, and rollback |
 
+## Quick start (standalone container, docker compose)
+
+Build the image and start the stack (PostgreSQL + Redis are bundled as compose
+services; see [docker-deployment.md](../docs/installation/docker-deployment.md)):
+
+```bash
+pnpm build:container            # docker build -f Dockerfile -t sdkwork-knowledgebase:local
+docker compose up -d            # api (3904:18081) + worker + postgres + redis
+curl -fsS http://127.0.0.1:3904/readyz
+```
+
 ## Quick start (Kubernetes)
 
-1. Build and push images (replace registry):
-   ```bash
-   docker build -f deployments/docker/Dockerfile.api -t registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0 ..
-   docker build -f deployments/docker/Dockerfile.worker -t registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0 ..
-   ```
+1. Build and push images (replace registry) for the `cloud.production`
+   topology; the standalone container image above is the single-deployment-unit
+   build, and cloud deploys the same binaries as k8s Deployments:
 2. Apply secrets and config from `etc/topology/cloud.production.env`.
    - `sdkwork-knowledgebase-drive-internal-api` must contain key `ingress-token`.
    - `sdkwork-knowledgebase-drive-events` must contain key `current`; add key `previous`

@@ -242,8 +242,7 @@ impl PostgresKnowledgeChunkRetrievalStore {
             return Ok(vec![]);
         }
 
-        let fts_match =
-            build_keyword_match_expression(&query_terms, term_operator);
+        let fts_match = build_keyword_match_expression(&query_terms, term_operator);
 
         let mut query = QueryBuilder::new(
             r#"
@@ -333,8 +332,7 @@ impl PostgresKnowledgeChunkRetrievalStore {
             return Ok(vec![]);
         }
 
-        let fts_match =
-            build_keyword_match_expression(&query_terms, term_operator);
+        let fts_match = build_keyword_match_expression(&query_terms, term_operator);
 
         let mut query = QueryBuilder::new(
             r#"
@@ -537,8 +535,7 @@ impl PostgresKnowledgeChunkRetrievalStore {
             &request.binding,
         )?;
         if !query_terms.is_empty() {
-            let fts_match =
-                build_keyword_match_expression(&query_terms, term_operator);
+            let fts_match = build_keyword_match_expression(&query_terms, term_operator);
             query.push(" AND (");
             push_keyword_or_title_filter(&mut query, &query_terms, term_operator, &fts_match);
             query.push(")");
@@ -1004,7 +1001,6 @@ fn push_keyword_or_title_filter(
     push_postgres_ts_or_title_filter(query, terms, term_operator, keyword_match)
 }
 
-
 fn push_postgres_ts_or_title_filter(
     query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
@@ -1039,13 +1035,9 @@ fn push_postgres_ts_or_title_filter(
     }
 }
 
-fn build_keyword_match_expression(
-    terms: &[String],
-    term_operator: TermMatchOperator,
-) -> String {
+fn build_keyword_match_expression(terms: &[String], term_operator: TermMatchOperator) -> String {
     build_postgres_tsquery(terms, term_operator)
 }
-
 
 fn build_postgres_tsquery(terms: &[String], term_operator: TermMatchOperator) -> String {
     let escaped_terms: Vec<String> = terms.iter().map(|term| escape_tsquery_term(term)).collect();
@@ -1058,7 +1050,6 @@ fn build_postgres_tsquery(terms: &[String], term_operator: TermMatchOperator) ->
     };
     escaped_terms.join(separator)
 }
-
 
 fn escape_tsquery_term(term: &str) -> String {
     let sanitized: String = term
@@ -1305,7 +1296,6 @@ fn trace_id_error(
 mod fts_tests {
     use super::*;
 
-
     #[test]
     fn postgres_tsquery_joins_terms_for_any_and_all() {
         let terms = vec!["alpha".to_string(), "beta".to_string()];
@@ -1318,5 +1308,4 @@ mod fts_tests {
             "alpha & beta"
         );
     }
-
 }

@@ -3,7 +3,7 @@
   "kind": "sdkwork.knowledgebase.organization-scope-inventory",
   "owner": "sdkwork-intelligence-knowledgebase-repository-sqlx",
   "sourceRoot": "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src",
-  "postgresMigration": "database/migrations/postgres/202607310001_core_organization_isolation.up.sql",
+  "postgresMigration": "database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql",
   "sessionKeys": [
     "app.current_tenant_id",
     "app.current_organization_id"

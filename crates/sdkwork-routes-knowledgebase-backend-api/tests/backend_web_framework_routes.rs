@@ -139,7 +139,11 @@ async fn dev_backend_auth_rejects_missing_knowledge_admin_permission() {
 }
 
 #[tokio::test]
-async fn backend_router_rejects_personal_login_scope_sessions() {
+async fn backend_router_authorizes_personal_login_scope_sessions_with_permission() {
+    // The SDKWork web-framework authority permits personal (TENANT login scope)
+    // sessions on backend surfaces (sdkwork-web-core `EnforcePrincipalTenantIsolationPolicy`
+    // and sdkwork-iam `IamAuthorizationPolicy`); backend authorization stays
+    // permission-driven, so the `knowledge.platform.manage` scope alone must pass.
     std::env::set_var("SDKWORK_ENV", "dev");
     let app = wrap_router_with_web_framework(
         IamWebRequestContextResolver::new(None),
@@ -155,6 +159,46 @@ async fn backend_router_rejects_personal_login_scope_sessions() {
             "session-1",
             "sdkwork-knowledgebase",
             "knowledge.platform.manage",
+        )
+    );
+    let access =
+        sdkwork_web_core::access_token_jwt(tenant_id, "99", "session-1", "sdkwork-knowledgebase");
+
+    let response = app
+        .oneshot(
+            HttpRequest::builder()
+                .method("GET")
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("Authorization", auth)
+                .header("Access-Token", access)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn backend_router_rejects_personal_login_scope_sessions_without_permission() {
+    // Permission gate stays authoritative for personal-scope sessions: without the
+    // `knowledge.platform.manage` scope the backend surface must still reject.
+    std::env::set_var("SDKWORK_ENV", "dev");
+    let app = wrap_router_with_web_framework(
+        IamWebRequestContextResolver::new(None),
+        build_router_with_backend_api(OkBackendApi, 100_001),
+    );
+
+    let tenant_id = "100001";
+    let auth = format!(
+        "Bearer {}",
+        sdkwork_web_core::auth_token_jwt_with_permissions(
+            tenant_id,
+            "99",
+            "session-1",
+            "sdkwork-knowledgebase",
+            "knowledge.spaces.read",
         )
     );
     let access =

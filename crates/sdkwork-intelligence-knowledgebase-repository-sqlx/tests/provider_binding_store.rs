@@ -1,6 +1,6 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, is_postgres_database_url, PostgresKnowledgeSpaceStore,
-    SqlxKnowledgeEngineProviderBindingStore,
+    connect_knowledgebase_and_install_schema, is_postgres_database_url,
+    PostgresKnowledgeSpaceStore, SqlxKnowledgeEngineProviderBindingStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
     KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderBindingStoreError,
@@ -22,10 +22,10 @@ use sdkwork_knowledgebase_contract::provider_binding::{
 
 #[tokio::test]
 async fn provider_binding_lifecycle_is_scoped_versioned_and_atomically_switchable() {
-let Some(pool) = provider_test_pool("provider-binding-lifecycle").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = provider_test_pool("provider-binding-lifecycle").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_001,
         organization_id: 7_001,
@@ -143,10 +143,10 @@ let Some(pool) = provider_test_pool("provider-binding-lifecycle").await else {
 
 #[tokio::test]
 async fn provider_binding_rejects_stale_versions_and_cross_implementation_credentials() {
-let Some(pool) = provider_test_pool("provider-binding-concurrency").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = provider_test_pool("provider-binding-concurrency").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_002,
         organization_id: 7_002,
@@ -248,10 +248,10 @@ let Some(pool) = provider_test_pool("provider-binding-concurrency").await else {
 
 #[tokio::test]
 async fn provider_credential_lifecycle_is_paginated_versioned_and_revocation_fails_closed() {
-let Some(pool) = provider_test_pool("provider-credential-lifecycle").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = provider_test_pool("provider-credential-lifecycle").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 100_003,
         organization_id: 7_003,

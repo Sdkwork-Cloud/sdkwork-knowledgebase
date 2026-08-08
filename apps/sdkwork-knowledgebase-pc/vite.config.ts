@@ -195,9 +195,13 @@ export default defineConfig(({mode}) => {
 
   return {
     base: browserBasePath,
-    ...(mode === 'development'
+    ...(mode === 'development' || mode === 'standalone.docker'
       ? {
           define: {
+            // Injects the credential-entry bootstrap Access-Token into the
+            // bundle (dev servers and the docker standalone container build;
+            // read from SDKWORK_ACCESS_TOKEN at build time). Other modes must
+            // not bake a token into the static bundle.
             'process.env.SDKWORK_ACCESS_TOKEN': JSON.stringify(
               env.SDKWORK_ACCESS_TOKEN ?? process.env.SDKWORK_ACCESS_TOKEN ?? '',
             ),

@@ -19,9 +19,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     UpsertKnowledgeOkfCandidateRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore,
-    KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
-    ReplaceKnowledgeOkfConceptLinksRecord,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    LinkEdgeCursor, LinkEdgePage, ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{

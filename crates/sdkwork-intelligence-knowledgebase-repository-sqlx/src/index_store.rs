@@ -317,9 +317,13 @@ impl KnowledgeIndexStore for PostgresKnowledgeIndexStore {
         space_id: u64,
         collection_id: u64,
     ) -> Result<KnowledgeIndex, PortKnowledgeIndexStoreError> {
-        PostgresKnowledgeIndexStore::get_or_create_active_vector_index(self, space_id, collection_id)
-            .await
-            .map_err(map_index_store_port_error)
+        PostgresKnowledgeIndexStore::get_or_create_active_vector_index(
+            self,
+            space_id,
+            collection_id,
+        )
+        .await
+        .map_err(map_index_store_port_error)
     }
 }
 

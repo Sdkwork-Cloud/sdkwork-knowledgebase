@@ -31,20 +31,8 @@ pub const POSTGRES_CHUNK_FTS_MIGRATION: &str =
 pub const POSTGRES_PERFORMANCE_INDEXES_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606230001__knowledgebase_performance_indexes.sql");
 
-
-
-
-
-
-
-
-
-
-
-
 pub const POSTGRES_MARKET_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606240001__knowledge_market.sql");
-
 
 pub const POSTGRES_AUDIT_EVENT_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606250001__knowledgebase_audit_event.sql");
@@ -52,30 +40,18 @@ pub const POSTGRES_AUDIT_EVENT_MIGRATION: &str =
 pub const POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607130001__group_knowledge_space.sql");
 
-
 pub const POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607130002__group_membership_projection.sql");
-
 
 pub const POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION: &str = include_str!(
     "../migrations/postgres/V202607130003__group_archive_saga_and_scope_integrity.sql"
 );
 
-
-
-
 pub const POSTGRES_INGESTION_JOB_LEASE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607160002__ingestion_job_lease.sql");
 
-
-
-
-
-
-
 pub const POSTGRES_LIVE_WIKI_PUBLICATION_MIGRATION: &str =
-    include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
-
+    include_str!("../migrations/postgres/V202607210001__live_wiki_publication.sql");
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_CORE_MIGRATION,

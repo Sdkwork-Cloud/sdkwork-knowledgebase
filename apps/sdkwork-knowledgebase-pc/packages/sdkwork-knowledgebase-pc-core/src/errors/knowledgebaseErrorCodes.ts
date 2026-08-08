@@ -47,6 +47,7 @@ export const KnowledgebaseErrorCodes = {
   TRANSFER_SAME_KB: 'validation.transferSameKnowledgeBase',
   DOCUMENT_NOT_INDEXED: 'validation.documentNotIndexed',
   DOCUMENT_RESOLVE_FAILED: 'operation.documentResolveFailed',
+  DOCUMENT_CONFLICT: 'operation.documentConflict',
   IMPORT_DOCUMENT_ID_MISSING: 'validation.importDocumentIdMissing',
   FEATURE_PREVIEW_ONLY: 'feature.previewOnly',
   NETWORK_OFFLINE: 'network.offline',

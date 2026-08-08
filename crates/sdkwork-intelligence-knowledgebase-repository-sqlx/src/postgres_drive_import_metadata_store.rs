@@ -117,13 +117,9 @@ impl PostgresDriveImportMetadataStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let mut transaction = if self.quota_limits.is_some() {
-            begin_tenant_quota_transaction(
-                &self.pool,
-                                tenant_id,
-                organization_id,
-            )
-            .await
-            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?
         } else {
             self.pool
                 .begin()
@@ -232,14 +228,9 @@ impl PostgresDriveImportMetadataStore {
         .await?;
 
         if let Some(limits) = self.quota_limits {
-            enforce_tenant_quotas_after_write(
-                &mut transaction,
-                                tenant_id,
-                organization_id,
-                limits,
-            )
-            .await
-            .map_err(map_quota_transaction_error)?;
+            enforce_tenant_quotas_after_write(&mut transaction, tenant_id, organization_id, limits)
+                .await
+                .map_err(map_quota_transaction_error)?;
         }
 
         transaction

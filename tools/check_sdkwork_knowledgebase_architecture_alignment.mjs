@@ -522,7 +522,7 @@ const requiredIngestMetadataAlignment = [
     symbols: ['MarkdownIndexSourceBinding', 'Conflict(String)'],
   },
   {
-    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_knowledge_document_metadata_transaction.rs',
+    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/postgres_knowledge_document_metadata_transaction.rs',
     symbols: ['create_or_get_source_in_transaction'],
   },
   {
@@ -549,7 +549,7 @@ const requiredIngestMetadataAlignment = [
     symbols: ['managed_drive_object_ref_record', 'create_or_prepare_drive_import_metadata'],
   },
   {
-    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_markdown_index_metadata_store.rs',
+    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/postgres_markdown_index_metadata_store.rs',
     symbols: ['create_or_get_source_in_transaction', 'MarkdownIndexSourceBinding'],
   },
 ];

@@ -47,7 +47,7 @@ use sdkwork_knowledgebase_contract::okf::{
     OkfLogEntry, OkfLogEventType, OkfRevisionReviewState, PublishKnowledgeOkfConceptRequest,
 };
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use support::{
     local_okf_bundle::{discover_bundle_files_from_directory, stackoverflow_bundle_root},

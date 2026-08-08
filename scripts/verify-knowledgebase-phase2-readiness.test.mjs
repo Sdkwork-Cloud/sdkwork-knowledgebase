@@ -53,8 +53,10 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     const crateMigration = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606260001__knowledgebase_postgres_rls.sql',
     );
+    // Post-launch organization isolation migrations are folded into the
+    // consolidated pre-launch baseline (database/migrations/postgres/README.md).
     const organizationMigration = readRepoFile(
-      'database/migrations/postgres/202607310001_core_organization_isolation.up.sql',
+      'database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql',
     );
     assert.match(baseline, /ENABLE ROW LEVEL SECURITY/);
     assert.match(baseline, /tenant_isolation/);

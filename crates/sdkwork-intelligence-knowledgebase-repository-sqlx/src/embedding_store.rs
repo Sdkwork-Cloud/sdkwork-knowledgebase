@@ -136,7 +136,9 @@ impl PostgresKnowledgeEmbeddingStore {
         let index_id = to_i64("index_id", request.index_id)?;
         let chunk_id = to_i64("chunk_id", request.chunk_id)?;
         let dimension = i64::try_from(request.vector.len()).map_err(|_| {
-            PostgresKnowledgeEmbeddingStoreError::Internal("embedding dimension overflow".to_string())
+            PostgresKnowledgeEmbeddingStoreError::Internal(
+                "embedding dimension overflow".to_string(),
+            )
         })?;
         let vector_json = serialize_embedding_vector(&request.vector)
             .map_err(PostgresKnowledgeEmbeddingStoreError::Internal)?;
@@ -274,7 +276,6 @@ impl PostgresKnowledgeEmbeddingStore {
             .collect()
     }
 }
-
 
 async fn bulk_upsert_embeddings_postgres(
     transaction: &mut Transaction<'_, Any>,

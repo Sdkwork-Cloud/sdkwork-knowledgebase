@@ -4,8 +4,7 @@ use axum::{
     response::Response,
 };
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    is_postgres_database_url,
-    PostgresGroupKnowledgeSpaceBindingStore, PostgresKnowledgeSpaceStore,
+    is_postgres_database_url, PostgresGroupKnowledgeSpaceBindingStore, PostgresKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
@@ -65,10 +64,12 @@ async fn group_managed_spaces_do_not_fall_back_to_direct_drive_owner_permissions
         "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID",
         &ORGANIZATION_ID.to_string(),
     );
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     assert_eq!(runtime.organization_id(), ORGANIZATION_ID);
     let direct_owner = app_context(DIRECT_DRIVE_OWNER_ID);
     let space_id = create_space(&runtime, direct_owner.clone()).await;
@@ -363,7 +364,8 @@ async fn assert_persisted_space(runtime: &KnowledgebaseRuntime, space_id: u64) {
     .expect("query generic visibility for created knowledge space");
     assert_eq!(generic_visible, 1);
 
-    let store = PostgresKnowledgeSpaceStore::new(runtime.pool().clone(), TENANT_ID, ORGANIZATION_ID);
+    let store =
+        PostgresKnowledgeSpaceStore::new(runtime.pool().clone(), TENANT_ID, ORGANIZATION_ID);
     store
         .get_space(space_id)
         .await
@@ -425,7 +427,9 @@ async fn send(
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);

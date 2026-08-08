@@ -3,8 +3,14 @@ import { useTranslation } from 'react-i18next';
 import type { DocumentMeta } from '../services/document';
 import { DocumentService } from '../services/document';
 import { toastKnowledgebaseError } from '../components/ui/toastKnowledgebaseError';
+import { isDocumentConflictError } from '../services/documentConflict';
 
 const SAVE_DEBOUNCE_MS = 800;
+
+interface PendingSave {
+  content: string;
+  baseVersionId: string | null;
+}
 
 interface UseKnowledgeBaseDocumentPersistenceOptions {
   activeDoc: DocumentMeta | null;
@@ -24,7 +30,8 @@ export function useKnowledgeBaseDocumentPersistence({
   setDocContent,
 }: UseKnowledgeBaseDocumentPersistenceOptions) {
   const { t } = useTranslation(['kb', 'common', 'errors']);
-  const pendingByDocRef = useRef<Map<string, string>>(new Map());
+  const pendingByDocRef = useRef<Map<string, PendingSave>>(new Map());
+  const baseVersionIdRef = useRef<Map<string, string | null>>(new Map());
   const timersByDocRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const saveInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
   const activeDocIdRef = useRef<string | null>(null);
@@ -36,8 +43,8 @@ export function useKnowledgeBaseDocumentPersistence({
       timersByDocRef.current.delete(docId);
     }
 
-    const content = pendingByDocRef.current.get(docId);
-    if (content === undefined) {
+    const pending = pendingByDocRef.current.get(docId);
+    if (pending === undefined) {
       return;
     }
     pendingByDocRef.current.delete(docId);
@@ -49,8 +56,20 @@ export function useKnowledgeBaseDocumentPersistence({
 
     const savePromise = (async () => {
       try {
-        await DocumentService.saveDocumentContent(docId, content);
+        const result = await DocumentService.saveDocumentContent(docId, pending.content, {
+          baseVersionId: pending.baseVersionId,
+        });
+        if (result.currentVersionId) {
+          baseVersionIdRef.current.set(docId, result.currentVersionId);
+        }
       } catch (error) {
+        // A conflict means another editor saved newer content; keep this save pending so
+        // the user's input is not silently lost, but do not auto-retry (the user must
+        // decide between reviewing the remote version or forcing an overwrite).
+        if (isDocumentConflict(error)) {
+          pendingByDocRef.current.set(docId, pending);
+          throw error;
+        }
         toastKnowledgebaseError(error, t);
         throw error;
       }
@@ -67,7 +86,10 @@ export function useKnowledgeBaseDocumentPersistence({
   }, [t]);
 
   const scheduleDocumentSave = useCallback((docId: string, content: string) => {
-    pendingByDocRef.current.set(docId, content);
+    pendingByDocRef.current.set(docId, {
+      content,
+      baseVersionId: baseVersionIdRef.current.get(docId) ?? null,
+    });
     const existingTimer = timersByDocRef.current.get(docId);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -112,10 +134,10 @@ export function useKnowledgeBaseDocumentPersistence({
           clearTimeout(timer);
           timersByDocRef.current.delete(docId);
         }
-        const content = pendingByDocRef.current.get(docId);
-        if (content !== undefined) {
+        const pending = pendingByDocRef.current.get(docId);
+        if (pending !== undefined) {
           pendingByDocRef.current.delete(docId);
-          void DocumentService.saveDocumentContent(docId, content).catch(() => undefined);
+          void DocumentService.saveDocumentContent(docId, pending.content).catch(() => undefined);
         }
       }
     };
@@ -173,4 +195,8 @@ export function useKnowledgeBaseDocumentPersistence({
   ]);
 
   return { handleContentChange };
+}
+
+function isDocumentConflict(error: unknown): boolean {
+  return isDocumentConflictError(error);
 }

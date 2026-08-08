@@ -44,7 +44,6 @@ pub(crate) async fn replace_version_chunks_in_transaction(
     let version_id = chunk_to_i64("document_version_id", context.document_version_id)?;
     let now = chunk_now()?;
 
-
     sqlx::query(
         r#"
         DELETE FROM kb_chunk
@@ -100,7 +99,6 @@ pub(crate) async fn replace_version_chunks_in_transaction(
     Ok(chunks.len())
 }
 
-
 async fn bulk_insert_kb_chunks_postgres(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: i64,
@@ -150,7 +148,6 @@ async fn bulk_insert_kb_chunks_postgres(
         .map_err(chunk_internal_error)?;
     Ok(())
 }
-
 
 pub async fn replace_version_chunks_with_pool(
     pool: &AnyPool,

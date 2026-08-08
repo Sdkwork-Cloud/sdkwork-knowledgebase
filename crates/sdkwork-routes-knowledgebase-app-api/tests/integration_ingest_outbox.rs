@@ -1,9 +1,9 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_drive_contract::drive::events::{
     DriveEventEnvelope, DriveNodeDeletedV1Data, DriveRootScopeEffect, DriveRootScopeKind,
 };
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_knowledgebase_worker::{
     run_maintenance_tick, MaintenanceConfig, MaintenanceTickError, MaintenanceTickState,
     WikiDriveEventMaintenanceConfig,
@@ -25,10 +25,12 @@ fn optional_postgres_database_url() -> Option<String> {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn ingest_appends_outbox_event_and_worker_publishes_it() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth_for_organization(
         runtime.build_full_app_router(),
         1,
@@ -193,10 +195,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn maintenance_tick_propagates_outbox_store_failure() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     runtime.pool().close().await;
 
     let error = run_maintenance_tick(
@@ -293,7 +297,9 @@ async fn response_body_string(response: axum::response::Response) -> String {
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -315,7 +321,6 @@ async fn test_runtime() -> Option<KnowledgebaseRuntime> {
         "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
         drive_root.to_string_lossy().as_ref(),
     );
-
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");

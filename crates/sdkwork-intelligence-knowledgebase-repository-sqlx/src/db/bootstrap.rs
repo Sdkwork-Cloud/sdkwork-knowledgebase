@@ -281,7 +281,6 @@ fn map_pool_error(error: PoolError) -> sqlx::Error {
     sqlx::Error::Configuration(error.to_string().into())
 }
 
-
 pub async fn connect_postgres_pool_via_framework(
     database_url: &str,
 ) -> Result<PgPool, sqlx::Error> {
@@ -332,7 +331,6 @@ mod tests {
         )
         .is_err());
     }
-
 
     #[test]
     fn postgres_tenant_option_preserves_existing_connection_options() {

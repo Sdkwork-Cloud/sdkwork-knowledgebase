@@ -23,7 +23,6 @@ pub async fn seed_default_tenant_web_policies(host: &WebStoreDatabaseHost) -> Re
     }
 }
 
-
 async fn seed_postgres(
     pool: &sqlx::Pool<sqlx::Postgres>,
     tenant_id: &str,

@@ -276,7 +276,7 @@ describe('KnowledgebaseDocumentApiBridge.createDocument', () => {
     const releaseWorkspace = activateEphemeralFixedKnowledgebaseWorkspace('420');
     try {
       await expect(getDocumentContent('991')).resolves.toBe('# Group-only document');
-      await expect(saveDocumentContent('991', '# Updated group document')).resolves.toBe(true);
+      await expect(saveDocumentContent('991', '# Updated group document')).resolves.toMatchObject({ saved: true });
       await expect(createDocument({
         kbId: '420',
         title: 'Group draft',

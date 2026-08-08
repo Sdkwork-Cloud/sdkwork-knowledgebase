@@ -95,7 +95,7 @@ const requiredOkfStorageSymbols = [
   "validate_concept_bundle_relative_path",
   "extract_index_linked_concept_ids",
   "kb_okf_candidate",
-  "SqliteKnowledgeOkfCandidateStore",
+  "PostgresKnowledgeOkfCandidateStore",
   "stage_concept_candidate",
   "stage_export_bundle_for_drive_import",
   "lint_stale_claims_against_source_lineage",
@@ -546,7 +546,7 @@ async function assertRequiredOkfStorageSymbols() {
     ),
     path.join(
       root,
-      "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs",
+      "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/postgres_import_stores.rs",
     ),
   ];
   const combined = (

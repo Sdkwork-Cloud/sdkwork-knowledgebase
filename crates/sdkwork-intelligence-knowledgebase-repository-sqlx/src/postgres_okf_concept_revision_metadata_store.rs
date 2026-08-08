@@ -23,9 +23,6 @@ use uuid::Uuid;
 
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
-use crate::quota_transaction::{
-    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
-};
 use crate::postgres_knowledge_document_metadata_transaction::create_or_get_object_ref_in_transaction;
 use crate::postgres_okf_candidate_transaction::{
     update_okf_candidate_state_by_concept_row_id_in_transaction,
@@ -33,6 +30,9 @@ use crate::postgres_okf_candidate_transaction::{
 };
 use crate::postgres_okf_concept_transaction::{
     next_okf_revision_no_in_transaction, upsert_okf_concept_in_transaction,
+};
+use crate::quota_transaction::{
+    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
 };
 
 const ACTIVE_STATUS: i64 = 1;
@@ -144,13 +144,11 @@ impl OkfConceptRevisionMetadataStore for PostgresOkfConceptRevisionMetadataStore
             )
         })?;
         let mut transaction = if self.quota_limits.is_some() {
-            begin_tenant_quota_transaction(
-                &self.pool,
-                                tenant_id,
-                organization_id,
-            )
-            .await
-            .map_err(|error| OkfConceptRevisionMetadataStoreError::internal(error.to_string()))?
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(|error| {
+                    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+                })?
         } else {
             self.pool.begin().await.map_err(|error| {
                 OkfConceptRevisionMetadataStoreError::internal(error.to_string())
@@ -229,14 +227,9 @@ impl OkfConceptRevisionMetadataStore for PostgresOkfConceptRevisionMetadataStore
         }
 
         if let Some(limits) = self.quota_limits {
-            enforce_tenant_quotas_after_write(
-                &mut transaction,
-                                tenant_id,
-                organization_id,
-                limits,
-            )
-            .await
-            .map_err(map_quota_transaction_error)?;
+            enforce_tenant_quotas_after_write(&mut transaction, tenant_id, organization_id, limits)
+                .await
+                .map_err(map_quota_transaction_error)?;
         }
 
         transaction
@@ -265,13 +258,11 @@ impl OkfConceptRevisionMetadataStore for PostgresOkfConceptRevisionMetadataStore
             )
         })?;
         let mut transaction = if self.quota_limits.is_some() {
-            begin_tenant_quota_transaction(
-                &self.pool,
-                                tenant_id,
-                organization_id,
-            )
-            .await
-            .map_err(|error| OkfConceptRevisionMetadataStoreError::internal(error.to_string()))?
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(|error| {
+                    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+                })?
         } else {
             self.pool.begin().await.map_err(|error| {
                 OkfConceptRevisionMetadataStoreError::internal(error.to_string())
@@ -311,14 +302,9 @@ impl OkfConceptRevisionMetadataStore for PostgresOkfConceptRevisionMetadataStore
         }
 
         if let Some(limits) = self.quota_limits {
-            enforce_tenant_quotas_after_write(
-                &mut transaction,
-                                tenant_id,
-                organization_id,
-                limits,
-            )
-            .await
-            .map_err(map_quota_transaction_error)?;
+            enforce_tenant_quotas_after_write(&mut transaction, tenant_id, organization_id, limits)
+                .await
+                .map_err(map_quota_transaction_error)?;
         }
 
         transaction

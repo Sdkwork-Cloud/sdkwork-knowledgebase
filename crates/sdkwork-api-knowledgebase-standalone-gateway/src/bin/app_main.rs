@@ -56,6 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         infra_public_path_prefixes(),
         sdkwork_routes_knowledgebase_open_api::knowledgebase_open_api_prefixes(),
     );
+    // The observability layer (wrap_router_with_metrics in serve_router) owns
+    // the process-level /metrics surface; skip the framework's duplicate
+    // infra /metrics route so the gateway boots without overlapping routes.
+    framework = framework.skip_infra_metrics();
 
     // Distributed Redis stores make rate limiting, idempotency, and concurrent
     // admission multi-replica safe. Production-like boot fails closed without them.

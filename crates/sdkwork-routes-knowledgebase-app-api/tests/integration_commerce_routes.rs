@@ -1,6 +1,6 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,9 +18,11 @@ fn optional_postgres_database_url() -> Option<String> {
 #[tokio::test]
 async fn integration_market_list_bootstraps_from_created_space() {
     let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime, "Market Bootstrap Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -61,9 +63,11 @@ async fn integration_market_list_bootstraps_from_created_space() {
 #[tokio::test]
 async fn integration_market_subscription_round_trip() {
     let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let _space_id = create_space(&runtime, "Market Subscription Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -151,9 +155,11 @@ async fn integration_market_subscription_round_trip() {
 #[tokio::test]
 async fn integration_image_generation_fails_closed_without_a_media_provider() {
     let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime, "Media Task Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -188,9 +194,11 @@ async fn integration_image_generation_fails_closed_without_a_media_provider() {
 #[tokio::test]
 async fn integration_transcription_fails_closed_without_derived_text_or_provider() {
     let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime, "Transcription Task Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -225,9 +233,11 @@ async fn integration_transcription_fails_closed_without_derived_text_or_provider
 #[tokio::test]
 async fn integration_git_sync_rejects_invalid_request() {
     let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime, "Git Sync Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
@@ -290,7 +300,9 @@ fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");

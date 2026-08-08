@@ -12,9 +12,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    InboundLinkTargetsPage, KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore,
-    KnowledgeOkfConceptLinkStoreError, LinkEdgeCursor, LinkEdgePage,
-    ReplaceKnowledgeOkfConceptLinksRecord,
+    InboundLinkTargetsPage, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    LinkEdgeCursor, LinkEdgePage, ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,

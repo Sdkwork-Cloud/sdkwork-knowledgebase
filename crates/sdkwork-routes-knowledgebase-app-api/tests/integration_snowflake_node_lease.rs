@@ -1,5 +1,5 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::default_knowledge_id_generator;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -24,7 +24,6 @@ async fn runtime_uses_a_healthy_database_backed_snowflake_node_lease() {
     std::fs::create_dir_all(&test_root).expect("create test root");
     let drive_root = test_root.join("drive-objects");
     std::fs::create_dir_all(&drive_root).expect("create drive root");
-
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     std::env::set_var("SDKWORK_DATABASE_NODE_LEASE_ENABLED", "true");

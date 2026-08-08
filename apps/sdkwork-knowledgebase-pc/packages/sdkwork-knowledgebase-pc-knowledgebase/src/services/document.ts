@@ -153,8 +153,14 @@ export class DocumentService {
     return withKnowledgebaseApi(() => KnowledgebaseDocumentApiBridge.hydrateDocumentForViewer(doc));
   }
 
-  static async saveDocumentContent(id: string, content: string): Promise<boolean> {
-    return withKnowledgebaseApi(() => KnowledgebaseDocumentApiBridge.saveDocumentContent(id, content));
+  static async saveDocumentContent(
+    id: string,
+    content: string,
+    options?: import('./knowledgebaseDocumentApiBridge').SaveDocumentContentOptions,
+  ): Promise<import('./knowledgebaseDocumentApiBridge').SaveDocumentContentResult> {
+    return withKnowledgebaseApi(() =>
+      KnowledgebaseDocumentApiBridge.saveDocumentContent(id, content, options),
+    );
   }
 
   static async updateDocument(id: string, updates: Partial<DocumentMeta>): Promise<boolean> {

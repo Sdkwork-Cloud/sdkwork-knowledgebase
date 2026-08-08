@@ -38,6 +38,7 @@ SDKWork Knowledgebase maintainers.
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
 | Dedicated tenant/organization runtime ADR | [architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md](architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md) |
+| Docker deployment (standalone container) | [installation/docker-deployment.md](installation/docker-deployment.md) |
 
 ## Operator runbooks (repository root)
 

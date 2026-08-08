@@ -16,10 +16,10 @@ const NOW: &str = "2026-07-20T00:00:00Z";
 
 #[tokio::test]
 async fn readiness_report_is_scoped_bounded_and_never_infers_from_sources() {
-let Some(pool) = readiness_test_pool("provider-binding-readiness-scope").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = readiness_test_pool("provider-binding-readiness-scope").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
 
     insert_space(&pool, TENANT_ID, ORGANIZATION_ID, 900, "external", 1).await;
     insert_source_with_provider(&pool, TENANT_ID, 900, "engine.knowledge.external.dify").await;
@@ -130,10 +130,10 @@ let Some(pool) = readiness_test_pool("provider-binding-readiness-scope").await e
 
 #[tokio::test]
 async fn readiness_report_rejects_invalid_page_and_cursor_inputs() {
-let Some(pool) = readiness_test_pool("provider-binding-readiness-input").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = readiness_test_pool("provider-binding-readiness-input").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let store = SqlxKnowledgeEngineProviderBindingReadinessStore::new(pool);
     let scope = KnowledgeEngineProviderScope {
         tenant_id: TENANT_ID as u64,

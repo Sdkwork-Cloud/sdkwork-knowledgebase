@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, KnowledgeIdGenerator};
-use crate::quota_transaction::{
-    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
-};
 use crate::postgres_knowledge_document_metadata_transaction::{
     bind_document_current_version_in_transaction, create_or_get_document_in_transaction,
     create_or_get_document_version_in_transaction, create_or_get_object_ref_in_transaction,
     create_or_get_source_in_transaction,
+};
+use crate::quota_transaction::{
+    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
 };
 
 #[derive(Debug, Clone)]
@@ -181,7 +181,7 @@ async fn postgres_create_or_prepare_markdown_index_metadata(
     if let Some(limits) = quota_limits {
         enforce_tenant_quotas_after_write(
             &mut transaction,
-                        tenant_id_i64,
+            tenant_id_i64,
             organization_id_i64,
             limits,
         )

@@ -331,7 +331,10 @@ mod tests {
             database_engine_label("postgres://user:secret@db.internal/knowledge"),
             "postgres"
         );
-        assert_eq!(database_engine_label("other://data/knowledgebase.db"), "other");
+        assert_eq!(
+            database_engine_label("other://data/knowledgebase.db"),
+            "other"
+        );
     }
 
     #[test]

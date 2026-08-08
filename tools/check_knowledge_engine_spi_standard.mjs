@@ -57,7 +57,7 @@ const requiredPaths = [
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/provider_binding_store.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/provider_binding_store.rs",
   "tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql",
-  "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
+  "database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/execution_handle.rs",
   "crates/sdkwork-knowledgebase-provider-secret-adapter/src/lib.rs",
@@ -670,10 +670,12 @@ const sqliteProviderMigration = await readFile(
   ),
   "utf8",
 );
+// Provider binding migrations are folded into the consolidated pre-launch
+// baseline (database/migrations/postgres/README.md).
 const postgresProviderMigration = await readFile(
   path.join(
     root,
-    "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
+    "database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql",
   ),
   "utf8",
 );

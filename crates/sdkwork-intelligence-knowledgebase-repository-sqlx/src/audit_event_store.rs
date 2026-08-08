@@ -394,4 +394,3 @@ impl KnowledgeAuditEventStore for PostgresKnowledgeAuditEventStore {
         self.append_event(event).await
     }
 }
-

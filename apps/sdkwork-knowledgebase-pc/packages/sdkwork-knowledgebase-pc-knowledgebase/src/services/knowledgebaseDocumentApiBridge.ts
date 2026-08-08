@@ -707,7 +707,25 @@ function parseSafeNumericDocumentId(id: string): string | null {
   return documentId;
 }
 
-export async function saveDocumentContent(id: string, content: string): Promise<boolean> {
+export interface SaveDocumentContentOptions {
+  /** Server `currentVersionId` observed when the document was last opened or last saved by
+   * this client. When provided, the save fails with `DOCUMENT_CONFLICT` if the document
+   * was updated elsewhere in the meantime, so concurrent editors are never silently
+   * overwritten (last-writer-wins on stale content). */
+  baseVersionId?: string | null;
+}
+
+export interface SaveDocumentContentResult {
+  saved: boolean;
+  /** Server `currentVersionId` after the save; store it as the next `baseVersionId`. */
+  currentVersionId: string | null;
+}
+
+export async function saveDocumentContent(
+  id: string,
+  content: string,
+  options?: SaveDocumentContentOptions,
+): Promise<SaveDocumentContentResult> {
   const persistBrowserState = shouldPersistBrowserWorkspaceState();
   const tenantId = persistBrowserState ? requireTenantId() : null;
   if (tenantId !== null) {
@@ -727,7 +745,7 @@ export async function saveDocumentContent(id: string, content: string): Promise<
       publish: true,
     });
     invalidateKnowledgeBrowserNodeCacheForSpaceIds(okfRef.spaceId);
-    return true;
+    return { saved: true, currentVersionId: null };
   }
 
   const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
@@ -741,6 +759,7 @@ export async function saveDocumentContent(id: string, content: string): Promise<
     throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_NOT_INDEXED);
   }
 
+  let currentVersionId: string | null = null;
   try {
     const client = requireSdkClient();
     let spaceId: string;
@@ -755,6 +774,21 @@ export async function saveDocumentContent(id: string, content: string): Promise<
       const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
       spaceId = String(document.spaceId);
       title = document.title;
+      currentVersionId = typeof document.currentVersionId === 'string'
+        ? document.currentVersionId
+        : null;
+      if (
+        !options?.baseVersionId
+        || !currentVersionId
+        || options.baseVersionId === currentVersionId
+      ) {
+        // No conflict: the observed base matches the current server version (or the
+        // server does not expose a version id yet).
+      } else {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_CONFLICT, {
+          cause: 'document was updated elsewhere since it was opened',
+        });
+      }
     }
     const job = await client.knowledge.ingests.create({
       spaceId,
@@ -777,12 +811,25 @@ export async function saveDocumentContent(id: string, content: string): Promise<
       );
     }
     invalidateKnowledgeBrowserNodeCacheForSpaceIds(spaceId);
+    // Refresh the server version id so the next save compares against the version this
+    // client just created instead of the pre-save one.
+    if (currentVersionId !== null && ephemeralSpaceId === null) {
+      try {
+        const refreshed = await client.knowledge.documents.retrieve(String(numericDocumentId));
+        if (typeof refreshed.currentVersionId === 'string') {
+          currentVersionId = refreshed.currentVersionId;
+        }
+      } catch {
+        // Best effort: keep the pre-save version id; the next save may surface a conflict
+        // that the user can resolve explicitly.
+      }
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: detail });
   }
 
-  return true;
+  return { saved: true, currentVersionId };
 }
 
 async function resolveNumericDocumentId(id: string): Promise<string | null> {
@@ -1078,7 +1125,7 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
   }
 
   if (updates.content !== undefined) {
-    await saveDocumentContent(id, updates.content);
+    await saveDocumentContent(id, updates.content, { baseVersionId: null });
   }
 
   const didUpdate =

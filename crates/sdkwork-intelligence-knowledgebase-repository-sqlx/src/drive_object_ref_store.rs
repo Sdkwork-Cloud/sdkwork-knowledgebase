@@ -164,13 +164,10 @@ impl PostgresKnowledgeDriveObjectRefStore {
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(sqlx_error)?;
         self.ensure_storage_quota_on(&mut transaction, record.size_bytes, limits)
             .await?;
         let object_ref = self
@@ -192,13 +189,10 @@ impl PostgresKnowledgeDriveObjectRefStore {
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
-        let mut transaction = begin_tenant_quota_transaction(
-            &self.pool,
-                        tenant_id,
-            organization_id,
-        )
-        .await
-        .map_err(sqlx_error)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, tenant_id, organization_id)
+                .await
+                .map_err(sqlx_error)?;
 
         if let Some(object_ref) = self
             .find_object_ref_by_locator_on(&record, &mut transaction)

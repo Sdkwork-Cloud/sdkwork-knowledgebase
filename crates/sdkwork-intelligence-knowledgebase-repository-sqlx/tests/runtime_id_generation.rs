@@ -1,15 +1,5 @@
 use sdkwork_database_id::default_snowflake_epoch_millis;
-use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
-    PostgresKnowledgeSpaceStore,
-};
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
-    CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
-};
-use sqlx::AnyPool;
-use std::sync::{Arc, Mutex};
-
-
+use sdkwork_intelligence_knowledgebase_repository_sqlx::SnowflakeKnowledgeIdGenerator;
 
 #[test]
 fn postgres_repository_inserts_declare_explicit_id_columns() {
@@ -73,31 +63,6 @@ fn snowflake_generator_accepts_configured_node_id_and_rejects_invalid_values() {
 }
 
 #[derive(Debug)]
-struct FixedIdGenerator {
-    ids: Mutex<Vec<u64>>,
-}
-
-impl KnowledgeIdGenerator for FixedIdGenerator {
-    fn next_id(&self) -> Result<u64, KnowledgeIdGeneratorError> {
-        self.ids
-            .lock()
-            .expect("fixed id generator lock poisoned")
-            .pop()
-            .ok_or_else(|| {
-                KnowledgeIdGeneratorError::Internal("fixed id generator exhausted".into())
-            })
-    }
-}
-
-fn fixed_id_generator(ids: impl IntoIterator<Item = u64>) -> Arc<dyn KnowledgeIdGenerator> {
-    let mut ids = ids.into_iter().collect::<Vec<_>>();
-    ids.reverse();
-    Arc::new(FixedIdGenerator {
-        ids: Mutex::new(ids),
-    })
-}
-
-#[derive(Debug)]
 struct InsertColumns {
     table_name: String,
     columns: Vec<String>,
@@ -136,4 +101,3 @@ fn kb_insert_column_blocks(source: &str) -> Vec<InsertColumns> {
     }
     inserts
 }
-

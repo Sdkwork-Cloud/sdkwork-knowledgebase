@@ -1,8 +1,8 @@
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    is_postgres_database_url,
-    PostgresKnowledgeOkfConceptStore, SqlxKnowledgeEngineProviderBindingStore,
+    is_postgres_database_url, PostgresKnowledgeOkfConceptStore,
+    SqlxKnowledgeEngineProviderBindingStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     KnowledgeOkfConceptStore, UpsertKnowledgeOkfConceptRecord,
@@ -42,10 +42,12 @@ fn optional_postgres_database_url() -> Option<String> {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_lists_documents() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "Document List Space").await;
 
@@ -76,10 +78,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_creates_manual_document_without_client_source_id() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "Manual Document Space").await;
 
@@ -122,10 +126,12 @@ let Some(runtime) = test_runtime().await else {
 async fn hosted_backend_router_serves_provider_health() {
     let _env_guard = lock_external_adapter_env().await;
     clear_external_adapter_env();
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
     let response = app
@@ -180,10 +186,12 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
         "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_DIFY_MANAGED_KEY",
         "managed-test-secret",
     );
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
     let space_response = app
@@ -423,10 +431,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_provider_migration_is_scoped_recoverable_and_reversible() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
     let space_response = app
@@ -639,10 +649,12 @@ async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
     );
     let _dify_dataset = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID", "ds-health");
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
     let space_response = app
@@ -692,10 +704,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_router_lists_sources() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
     let response = app
@@ -717,10 +731,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_router_upserts_okf_concept() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let space_response = app
@@ -770,10 +786,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_lists_okf_concepts_for_space() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let space_id = create_space(&app, "Concept List Space").await;
@@ -809,10 +827,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_pages_okf_concepts_and_revisions_with_standard_list_envelopes() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "OKF Pagination Space").await;
     let concepts = PostgresKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1, 0);
@@ -990,10 +1010,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_okf_lists_reject_invalid_and_noncanonical_pagination_queries() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "OKF Invalid Pagination Space").await;
     let concepts = PostgresKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1, 0);
@@ -1051,10 +1073,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_lists_okf_candidates_for_space() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1080,10 +1104,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_registers_okf_profile_and_rebuilds_index() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1134,10 +1160,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_imports_staged_export_bundle() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1187,10 +1215,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_export_stages_bundle_for_import_roundtrip() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let source_space = create_space(&app, "Export Source").await;
@@ -1269,10 +1299,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_export_stages_bundle_for_import() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1310,10 +1342,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_runs_okf_lint_job_for_space() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1345,10 +1379,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_runs_okf_compile_job_for_space() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1380,10 +1416,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_approves_okf_candidate() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1441,10 +1479,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_rejects_okf_candidate() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1500,10 +1540,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_dify_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1560,10 +1602,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_ragflow_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1620,10 +1664,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_onyx_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1677,10 +1723,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_anythingllm_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1734,10 +1782,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_open_webui_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1791,10 +1841,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_flowise_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1848,10 +1900,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_chroma_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1905,10 +1959,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_qdrant_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -1962,10 +2018,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_weaviate_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2019,10 +2077,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_backend_resolves_unconfigured_haystack_without_startup_credential_access() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2087,10 +2147,12 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
     clear_qdrant_adapter_env();
     clear_weaviate_adapter_env();
     clear_haystack_adapter_env();
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2237,10 +2299,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         "hosted-test-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2398,10 +2462,12 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         "hosted-read-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2572,10 +2638,12 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         "hosted-ragflow-read-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2732,10 +2800,12 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         "hosted-open-webui-read-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -2898,10 +2968,12 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         "hosted-flowise-read-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3086,10 +3158,12 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
         "sentence-transformers/all-minilm-l6-v2",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3245,10 +3319,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         "hosted-ragflow-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3389,10 +3465,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         "hosted-onyx-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3538,10 +3616,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         "hosted-anythingllm-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3684,10 +3764,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         "hosted-open-webui-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3832,10 +3914,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         "hosted-flowise-key",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -3976,10 +4060,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4137,10 +4223,12 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4301,10 +4389,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
         "sentence-transformers/all-minilm-l6-v2",
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4448,10 +4538,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4611,10 +4703,12 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4768,10 +4862,12 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -4915,10 +5011,12 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
         mock_server.uri().as_str(),
     );
 
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -5044,10 +5142,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let space_id = create_space(&app, "OKF Agent Chat Space").await;
@@ -5169,10 +5269,12 @@ let Some(runtime) = test_runtime().await else {
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_app_runs_okf_lint_job_for_space() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let space_id = create_space(&app, "App Lint Space").await;
@@ -5258,10 +5360,12 @@ async fn upsert_okf_concept(
 #[ignore = "requires a PostgreSQL integration environment; the Knowledgebase server runtime requires PostgreSQL by architecture"]
 #[tokio::test]
 async fn hosted_open_router_lists_documents() {
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = dev_auth::with_dev_open_auth(runtime.build_open_api_router(), 1, Some(42));
     let app_router = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app_router, "Open Document List Space").await;
@@ -5433,7 +5537,9 @@ fn clear_external_adapter_env() {
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");

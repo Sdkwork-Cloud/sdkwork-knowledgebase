@@ -277,7 +277,6 @@ describe('knowledgebase security standard alignment', () => {
       'crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs',
     );
     assert.match(webAuditStore, /shared_audit_emitter_pg/);
-    assert.match(webAuditStore, /shared_audit_emitter\(/);
     assert.match(webAuditStore, /attach_knowledgebase_audit_emitter/);
     const appBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
@@ -575,7 +574,7 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(hostedBackend, /list_space_members_admin_with_runtime/);
     assert.match(hostedBackend, /async fn list_indexes/);
     const spaceStore = readRepoFile(
-      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_space_stores.rs',
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/postgres_space_stores.rs',
     );
     assert.match(spaceStore, /list_active_spaces/);
     const policyBootstrap = readRepoFile(

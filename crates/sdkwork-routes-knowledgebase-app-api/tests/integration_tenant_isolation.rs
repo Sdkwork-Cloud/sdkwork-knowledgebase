@@ -1,6 +1,6 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
+use sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url;
 use sdkwork_routes_knowledgebase_app_api::{
     paths, KnowledgeAppRequestContext, KnowledgebaseRuntime,
 };
@@ -66,10 +66,12 @@ fn optional_postgres_database_url() -> Option<String> {
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_retrieve() {
     let _guard = tenant_isolation_test_lock().await;
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let space_id = create_space(&runtime, app_context(1, 42, None)).await;
     let app = runtime.build_full_app_router();
 
@@ -94,10 +96,12 @@ let Some(runtime) = test_runtime().await else {
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_creation() {
     let _guard = tenant_isolation_test_lock().await;
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = runtime.build_full_app_router();
 
     let response = app
@@ -129,10 +133,12 @@ let Some(runtime) = test_runtime().await else {
 async fn organization_id_mismatch_rejects_when_runtime_org_configured() {
     let _guard = tenant_isolation_test_lock().await;
     let _org_env = TestEnvVarGuard::set("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "100");
-let Some(runtime) = test_runtime().await else {
-    eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(runtime) = test_runtime().await else {
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
     let app = runtime.build_full_app_router();
 
     let response = app
@@ -205,7 +211,9 @@ fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
 
 async fn test_runtime() -> Option<KnowledgebaseRuntime> {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!(
+            "skipping integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
         return None;
     };
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);

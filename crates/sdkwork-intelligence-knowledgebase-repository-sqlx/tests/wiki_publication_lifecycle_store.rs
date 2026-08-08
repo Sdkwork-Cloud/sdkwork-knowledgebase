@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_postgres_and_install_schema, is_postgres_database_url, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
-    SqlxWikiPersistenceStore,
+    connect_postgres_and_install_schema, is_postgres_database_url, KnowledgeIdGenerator,
+    KnowledgeIdGeneratorError, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_wiki_persistence::{
@@ -36,10 +36,10 @@ fn audit_context(request_id: &str) -> WikiLifecycleAuditContext {
 
 #[tokio::test]
 async fn activation_and_pause_are_optimistic_and_emit_provider_events() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_wiki(&pool, "READY", "DRAFT", "PRIVATE", "READY").await;
 
     let activated = store
@@ -123,10 +123,10 @@ let Some((pool, store)) = test_store().await else {
 
 #[tokio::test]
 async fn publish_visibility_and_unpublish_advance_only_the_required_generations() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_wiki(&pool, "ACTIVE", "DRAFT", "PRIVATE", "READY").await;
 
     let published = store
@@ -247,10 +247,10 @@ let Some((pool, store)) = test_store().await else {
 
 #[tokio::test]
 async fn invalid_private_publish_cross_scope_and_stale_commands_leave_state_unchanged() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_wiki(&pool, "ACTIVE", "DRAFT", "PRIVATE", "READY").await;
 
     let private = store
@@ -316,10 +316,10 @@ let Some((pool, store)) = test_store().await else {
 
 #[tokio::test]
 async fn audit_persistence_failure_rolls_back_publication_and_outbox() {
-let Some((pool, store)) = test_store().await else {
-    eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, store)) = test_store().await else {
+        eprintln!("skipping wiki postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     seed_wiki(&pool, "READY", "DRAFT", "PRIVATE", "READY").await;
     sqlx::query("DROP TABLE kb_audit_event")
         .execute(&pool)

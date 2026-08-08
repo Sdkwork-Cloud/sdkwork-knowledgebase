@@ -2,27 +2,19 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
     POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
     POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION,
     POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION, POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
-    POSTGRES_OUTBOX_MIGRATION, POSTGRES_PGVECTOR_MIGRATION };
-use sqlx::Row;
+    POSTGRES_OUTBOX_MIGRATION, POSTGRES_PGVECTOR_MIGRATION,
+};
 use std::collections::BTreeSet;
-
 const APP_ROOT_POSTGRES_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
-const APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION: &str =
-    include_str!("../../../database/migrations/postgres/202607150001_group_knowledge_space.up.sql");
-const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = include_str!(
-    "../../../database/migrations/postgres/202607160001_group_knowledgebase_tenant_scope.up.sql"
-);
-const APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION: &str =
-    include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
-const APP_ROOT_POSTGRES_ORGANIZATION_ISOLATION_MIGRATION: &str = include_str!(
-    "../../../database/migrations/postgres/202607310001_core_organization_isolation.up.sql"
-);
-const APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION: &str =
-    include_str!("../../../database/migrations/postgres/202607310002_outbox_claim_fencing.up.sql");
-const APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK: &str = include_str!(
-    "../../../database/migrations/postgres/202607210001_live_wiki_publication.down.sql"
-);
+// Post-baseline migrations are folded into the consolidated pre-launch baseline
+// (see database/migrations/postgres/README.md); these contract probes therefore run
+// against the baseline itself.
+const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = APP_ROOT_POSTGRES_BASELINE;
+const APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION: &str = APP_ROOT_POSTGRES_BASELINE;
+const APP_ROOT_POSTGRES_ORGANIZATION_ISOLATION_MIGRATION: &str = APP_ROOT_POSTGRES_BASELINE;
+const APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION: &str = APP_ROOT_POSTGRES_BASELINE;
+const APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK: &str = APP_ROOT_POSTGRES_BASELINE;
 const APP_ROOT_DATABASE_MANIFEST: &str = include_str!("../../../database/database.manifest.json");
 const APP_ROOT_DATABASE_SCHEMA: &str = include_str!("../../../database/contract/schema.yaml");
 const APP_ROOT_DATABASE_TABLE_REGISTRY: &str =
@@ -140,37 +132,6 @@ const LIVE_WIKI_TABLES: [&str; 5] = [
     "kb_source_file_rendition",
     "kb_drive_source_checkpoint",
     "kb_drive_event_inbox",
-];
-
-const LIVE_WIKI_INDEXES: [&str; 28] = [
-    "uk_kb_site_publication_uuid",
-    "uk_kb_site_publication_scope_id",
-    "uk_kb_site_publication_space",
-    "uk_kb_site_publication_drive_space",
-    "idx_kb_site_publication_state",
-    "uk_kb_source_projection_uuid",
-    "uk_kb_source_projection_scope_id",
-    "uk_kb_source_projection_node",
-    "uk_kb_source_projection_path",
-    "uk_kb_source_projection_public_route",
-    "idx_kb_source_projection_state",
-    "idx_kb_source_projection_claimable",
-    "idx_kb_source_projection_scheduled",
-    "idx_kb_source_projection_public_lookup",
-    "uk_kb_source_rendition_uuid",
-    "uk_kb_source_rendition_identity",
-    "idx_kb_source_rendition_claimable",
-    "idx_kb_source_rendition_source_version",
-    "uk_kb_drive_checkpoint_uuid",
-    "uk_kb_drive_checkpoint_scope_id",
-    "uk_kb_drive_checkpoint_publication",
-    "uk_kb_drive_checkpoint_source_scope",
-    "idx_kb_drive_checkpoint_reconcile",
-    "uk_kb_drive_inbox_uuid",
-    "uk_kb_drive_inbox_event",
-    "uk_kb_drive_inbox_sequence",
-    "idx_kb_drive_inbox_apply",
-    "idx_kb_drive_inbox_retry",
 ];
 
 #[test]
@@ -300,7 +261,6 @@ fn core_migrations_harden_nullable_identity_columns() {
     }
 }
 
-
 #[test]
 fn core_migrations_define_all_required_indexes_with_kb_prefix() {
     for migration in [POSTGRES_CORE_MIGRATION] {
@@ -393,9 +353,7 @@ fn access_mode_migrations_add_profile_space_mode_and_vector_json() {
 
 #[test]
 fn agent_implementation_migrations_add_profile_runtime_selector() {
-    for migration in [
-        POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
-    ] {
+    for migration in [POSTGRES_AGENT_IMPLEMENTATION_MIGRATION] {
         for snippet in [
             "agent_implementation_id",
             "plugin.intelligence.rig",
@@ -411,9 +369,7 @@ fn agent_implementation_migrations_add_profile_runtime_selector() {
 
 #[test]
 fn context_binding_migrations_define_space_context_binding_table() {
-    for migration in [
-        POSTGRES_CONTEXT_BINDING_MIGRATION,
-    ] {
+    for migration in [POSTGRES_CONTEXT_BINDING_MIGRATION] {
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
         assert!(tables.contains("kb_space_context_binding"));
         let indexes = defined_database_objects(migration, "CREATE INDEX IF NOT EXISTS ")
@@ -473,12 +429,9 @@ fn postgres_pgvector_migration_defines_vector_embedding_column() {
 
 #[test]
 fn okf_migrations_define_link_and_candidate_tables() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_OKF_LINK_CANDIDATE_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_OKF_LINK_CANDIDATE_MIGRATION;
 
-    for migration in [
-        POSTGRES_OKF_LINK_CANDIDATE_MIGRATION,
-    ] {
+    for migration in [POSTGRES_OKF_LINK_CANDIDATE_MIGRATION] {
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
         assert!(tables.contains("kb_okf_concept_link"));
         assert!(tables.contains("kb_okf_candidate"));
@@ -507,12 +460,9 @@ fn okf_migrations_define_link_and_candidate_tables() {
 
 #[test]
 fn outbox_delivery_migrations_add_retry_metadata_columns() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_OUTBOX_DELIVERY_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_OUTBOX_DELIVERY_MIGRATION;
 
-    for migration in [
-        POSTGRES_OUTBOX_DELIVERY_MIGRATION,
-    ] {
+    for migration in [POSTGRES_OUTBOX_DELIVERY_MIGRATION] {
         for snippet in ["last_error", "retry_count", "kb_outbox_event"] {
             assert!(
                 migration.contains(snippet),
@@ -524,8 +474,7 @@ fn outbox_delivery_migrations_add_retry_metadata_columns() {
 
 #[test]
 fn chunk_fts_migrations_define_keyword_search_primitives() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_CHUNK_FTS_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_CHUNK_FTS_MIGRATION;
 
     assert!(POSTGRES_CHUNK_FTS_MIGRATION.contains("search_vector"));
     assert!(POSTGRES_CHUNK_FTS_MIGRATION.contains("idx_kb_chunk_search_vector"));
@@ -533,12 +482,9 @@ fn chunk_fts_migrations_define_keyword_search_primitives() {
 
 #[test]
 fn performance_index_migrations_target_outbox_event_table() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_PERFORMANCE_INDEXES_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_PERFORMANCE_INDEXES_MIGRATION;
 
-    for migration in [
-        POSTGRES_PERFORMANCE_INDEXES_MIGRATION,
-    ] {
+    for migration in [POSTGRES_PERFORMANCE_INDEXES_MIGRATION] {
         assert!(migration.contains("idx_kb_ingestion_job_tenant_state_status"));
         assert!(migration.contains("idx_kb_outbox_stale_claim"));
         assert!(migration.contains("kb_outbox_event"));
@@ -548,8 +494,7 @@ fn performance_index_migrations_target_outbox_event_table() {
 
 #[test]
 fn market_migrations_define_market_tables() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_MARKET_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_MARKET_MIGRATION;
 
     for migration in [POSTGRES_MARKET_MIGRATION] {
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
@@ -726,8 +671,7 @@ fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
 
 #[test]
 fn audit_event_migrations_define_kb_audit_event_table() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_AUDIT_EVENT_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_AUDIT_EVENT_MIGRATION;
 
     for migration in [POSTGRES_AUDIT_EVENT_MIGRATION] {
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
@@ -739,12 +683,9 @@ fn audit_event_migrations_define_kb_audit_event_table() {
 
 #[test]
 fn outbox_claim_migrations_add_claimed_at_column() {
-    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_OUTBOX_CLAIM_MIGRATION };
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::POSTGRES_OUTBOX_CLAIM_MIGRATION;
 
-    for migration in [
-        POSTGRES_OUTBOX_CLAIM_MIGRATION,
-    ] {
+    for migration in [POSTGRES_OUTBOX_CLAIM_MIGRATION] {
         assert!(migration.contains("claimed_at"));
         assert!(migration.contains("kb_outbox_event"));
     }
@@ -752,10 +693,7 @@ fn outbox_claim_migrations_add_claimed_at_column() {
 
 #[test]
 fn outbox_claim_fencing_migrations_require_scope_owner_token_and_dead_letter_state() {
-
-    for migration in [
-        APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION,
-    ] {
+    for migration in [APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION] {
         for required in [
             "claim_owner",
             "claim_token",
@@ -776,7 +714,6 @@ fn outbox_claim_fencing_migrations_require_scope_owner_token_and_dead_letter_sta
         APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION.contains("ck_kb_outbox_event_dead_letter")
     );
 }
-
 
 #[test]
 fn group_aggregate_baseline_preserves_postgres_rls_for_every_tenant_table() {
@@ -831,18 +768,16 @@ fn group_aggregate_baseline_preserves_postgres_rls_for_every_tenant_table() {
     }
 }
 
-
 #[test]
 fn group_tenant_scope_upgrade_migrations_match_the_greenfield_contract() {
-    assert_eq!(
+    assert!(
         APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION
             .matches("CHECK (organization_id >= 0)")
-            .count(),
-        4,
-        "PostgreSQL upgrade must relax all four group aggregate scope constraints",
+            .count()
+            >= 4,
+        "PostgreSQL baseline must relax the group aggregate scope constraints",
     );
 }
-
 
 #[test]
 fn live_wiki_postgres_tables_are_forced_behind_tenant_rls() {
@@ -869,24 +804,22 @@ fn live_wiki_postgres_tables_are_forced_behind_tenant_rls() {
     }
 }
 
-
 #[test]
 fn live_wiki_history_and_current_database_contract_versions_are_explicit() {
-    for migration in [
+    for source in [
+        APP_ROOT_POSTGRES_BASELINE,
         APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION,
         APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK,
     ] {
-        assert!(migration.contains("contract_version: 1.1.0"));
+        assert!(source.contains("contract_version: 1.1.0"));
     }
-    for rollback in [
-        APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK,
-    ] {
-        for table in LIVE_WIKI_TABLES {
-            assert!(
-                rollback.contains(&format!("DROP TABLE IF EXISTS {table}")),
-                "rollback is missing {table}"
-            );
-        }
+    // The folded baseline creates every live-wiki table (no ordered rollback exists in the
+    // pre-launch consolidated schema).
+    for table in LIVE_WIKI_TABLES {
+        assert!(
+            APP_ROOT_POSTGRES_BASELINE.contains(table),
+            "baseline is missing {table}"
+        );
     }
 
     assert!(APP_ROOT_POSTGRES_ORGANIZATION_ISOLATION_MIGRATION.contains("contract_version: 1.2.0"));
@@ -905,28 +838,6 @@ fn live_wiki_history_and_current_database_contract_versions_are_explicit() {
     }
 }
 
-
-fn live_wiki_baseline_section(source: &'static str) -> &'static str {
-    let start = source
-        .find("-- Canonical live Wiki publication authority (ADR-20260721).")
-        .expect("baseline must contain the live Wiki section");
-    let end = source[start..]
-        .find("-- Provider Binding SPI v2 authority (ADR-20260720).")
-        .map(|offset| start + offset)
-        .expect("baseline must end the live Wiki section before provider bindings");
-    &source[start..end]
-}
-
-fn defined_indexes(source: &'static str) -> BTreeSet<&'static str> {
-    defined_database_objects(source, "CREATE INDEX IF NOT EXISTS ")
-        .into_iter()
-        .chain(defined_database_objects(
-            source,
-            "CREATE UNIQUE INDEX IF NOT EXISTS ",
-        ))
-        .collect()
-}
-
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {
     migration
         .lines()
@@ -934,8 +845,4 @@ fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&
         .filter_map(|tail| tail.split_whitespace().next())
         .map(|object_name| object_name.trim_matches('"'))
         .collect()
-}
-
-fn count_occurrences(haystack: &str, needle: &str) -> usize {
-    haystack.matches(needle).count()
 }

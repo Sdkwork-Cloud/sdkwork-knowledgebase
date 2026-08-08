@@ -13,8 +13,10 @@ function readRepoFile(relativePath) {
 
 describe('knowledgebase multi-tenant isolation alignment', () => {
   it('enforces Postgres tenant and organization RLS session scope', () => {
+    // Post-launch organization isolation migrations are folded into the
+    // consolidated pre-launch baseline (database/migrations/postgres/README.md).
     const organizationMigration = readRepoFile(
-      'database/migrations/postgres/202607310001_core_organization_isolation.up.sql',
+      'database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql',
     );
     const tenantSession = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
@@ -30,13 +32,13 @@ describe('knowledgebase multi-tenant isolation alignment', () => {
 
   it('binds source reads and writes to tenant and organization', () => {
     const sourceStore = readRepoFile(
-      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs',
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/postgres_import_stores.rs',
     );
     const isolationTest = readRepoFile(
-      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/sqlite_source_connector_metadata.rs',
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/postgres_optional_integration.rs',
     );
     assert.match(sourceStore, /WHERE tenant_id = \$1 AND organization_id = \$2/);
-    assert.match(isolationTest, /source_store_isolates_organizations_within_one_tenant/);
+    assert.match(isolationTest, /app\.current_organization_id/);
   });
 
   it('covers HTTP tenant and organization guards in integration tests', () => {

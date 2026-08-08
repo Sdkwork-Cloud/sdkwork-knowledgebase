@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, is_postgres_database_url, PostgresKnowledgeSpaceStore,
-    SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
+    connect_knowledgebase_and_install_schema, is_postgres_database_url,
+    PostgresKnowledgeSpaceStore, SqlxKnowledgeEngineProviderBindingStore,
+    SqlxKnowledgeEngineProviderMigrationStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_provider_binding_store::{
@@ -31,10 +32,10 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 #[tokio::test]
 async fn provider_migration_is_idempotent_claimed_versioned_and_reversible() {
-let Some(pool) = migration_test_pool("provider-migration-lifecycle").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some(pool) = migration_test_pool("provider-migration-lifecycle").await else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let scope = KnowledgeEngineProviderScope {
         tenant_id: 110_001,
         organization_id: 71,
@@ -239,10 +240,11 @@ let Some(pool) = migration_test_pool("provider-migration-lifecycle").await else 
 
 #[tokio::test]
 async fn provider_migration_rejects_stale_claim_token_after_lease_recovery() {
-let Some((pool, scope, space_id, source, target)) = migration_fixture("stale-claim").await else {
-    eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-    return;
-};
+    let Some((pool, scope, space_id, source, target)) = migration_fixture("stale-claim").await
+    else {
+        eprintln!("skipping provider postgres test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
     let store = SqlxKnowledgeEngineProviderMigrationStore::new(pool.clone());
     let operation = store
         .create_operation(
